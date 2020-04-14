@@ -1,0 +1,4 @@
+# NAME,TYPE,NETWORK_UUID,GEOREGION_UUID,ENDPOINTGROUP_UUIDS_[OPT],APPWAN_UUIDS_[OPT],EMAIL_[OPT]
+TEST CLIENT 1,CL,3fd2ba58-24c4-4cd7-b131-ab5de00ed254,9bbca6aa-767c-4c48-b4ab-dac0ead018fc,xxxxxx;xxxxxx,,nic.fragale@netfoundry.io
+TEST CLIENT 2,VCPEGW,3fd2ba58-24c4-4cd7-b131-ab5de00ed254,9bbca6aa-767c-4c48-b4ab-dac0ead018fc,,xxxxxx;xxxxxx,
+TEST CLIENT 3,ZTCL,3fd2ba58-24c4-4cd7-b131-ab5de00ed254,9bbca6aa-767c-4c48-b4ab-dac0ead018fc,,,nic.fragale@netfoundry.io
