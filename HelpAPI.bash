@@ -22,7 +22,7 @@ SAFEDir="/etc/NetFoundrySAFE" # A variable that holds the location of the SAFE d
 SECONDS="0" # Seconds counting since launched.
 ParentPID="$$" # The PID of this script (AKA the parent that spawns subprocesses).
 MyPkgMgr="UNKNOWN" # The OS of the running system.
-MyName="${0##*/}" # Name (Base) of the program.
+MyName="${0##*/}" # Name (base) of the program.
 APIConsole="production"
 TeachMode="FALSE" # A special flag that allows emit of certain messages.
 DebugInfo="FALSE" # A special flag that shows extra data from the API system.
@@ -316,7 +316,8 @@ function TrackLastTouch() {
 		# This function is pushed to the background and executes on a cadence.
 		{
 			# Until the trigger to end appears, read from the FIFO pipe and set the local variable.
-			sleep 5 && while true; do
+			while true; do
+				sleep 5
 				read -t 1 <>/tmp/FIFO-${ParentPID:-ORPHAN}.pipe LastTouchSECONDS 2>/dev/null
 					#|| AttentionMessage "CRITICAL" "Could not ascertain \"LastTouchSECONDS\" from \"/tmp/FIFO-${ParentPID:-ORPHAN}.pipe\"."
 				if [[ $((${MaxIdle}-(${SECONDS}-${LastTouchSECONDS:-0}))) -le 0 ]]; then
@@ -1351,28 +1352,112 @@ function GetObjects() {
 			return 1
 		;;
 
-		"GEOREGIONS")
-			if ProcessResponse "${GETSyntax}" "${APIRESTURL}/geoRegions" "200"; then
-				PrintHelper "BOXHEADLINEA" "ITEM #" "${Normal}:::TYPE/INDICATOR" "GEOREGION NAME=>UUID" >&2
+		"GEOREGIONS"|"SPECIFICGEOREGION")
+			local BoxType
+			if ProcessResponse "${GETSyntax}" "${APIRESTURL}/${URLTrail:-geoRegions}" "200"; then
+				PrintHelper "BOXHEADLINEA" "ITEM #" "${Normal}:::TYPE/INDICATOR" "DESCRIPTION=>UUID" >&2
 
-				AllGeoRegions=( \
+				if [[ ${ListType} == "SPECIFICGEOREGION" ]]; then
+					BoxType="BOXITEMASUB"
+					AllGeoRegions=( \
+						$(echo "${OutputJSON}" \
+							| jq -r '
+								select(.name != null)
+								| .name + "=>" + (._links.self.href | split("/"))[-1]
+							'
+						)
+					)
+				else
+					BoxType="BOXITEMA"
+					AllGeoRegions=( \
+						$(echo "${OutputJSON}" \
+							| jq -r '
+								select(._embedded.geoRegions != null)
+								| ._embedded.geoRegions
+								| sort_by(.name)
+								| .[]
+								| .name + "=>" + (._links.self.href | split("/"))[-1]
+							' \
+							| egrep -i "${FilterString:-${PrimaryFilterString:-.}}"
+						)
+					)
+				fi
+
+				if [[ ${#AllGeoRegions[*]} -eq 0 ]]; then
+					PrintHelper "${BoxType}" "GEO...." "WARNING:::WARNING" "No GeoRegions Found." >&2
+				else
+					for ((i=0;i<${#AllGeoRegions[*]};i++)); do
+						PrintHelper "${BoxType}" "GEO$(printf "%04d" "$((${i}+1))")" "${Normal}:::GEOREGION" "${AllGeoRegions[${i}]}"
+					done
+				fi
+
+				PrintHelper "BOXFOOTLINEA" >&2
+				return 0
+
+			fi
+
+			return 1
+		;;
+
+		"COUNTRIES")
+			if ProcessResponse "${GETSyntax}" "${APIRESTURL}/countries" "200"; then
+				PrintHelper "BOXHEADLINEA" "ITEM #" "${Normal}:::TYPE/INDICATOR" "DESCRIPTION=>UUID" >&2
+
+				AllCountries=( \
 					$(echo "${OutputJSON}" \
 						| jq -r '
-							select(._embedded.geoRegions != null)
-							| ._embedded.geoRegions
-							| sort_by(.name)
+							select(._embedded.countries != null)
+							| ._embedded.countries
+							| sort_by(.worldRegion)
 							| .[]
-							| .name + "=>" + (._links.self.href | split("/"))[-1]
-						'
+							| .worldRegion + "/" + .name + "=>" + (._links.self.href | split("/"))[-1]
+						' \
+						| egrep -i "${FilterString:-${PrimaryFilterString:-.}}"
 					)
 				)
 
-				if [[ ${#AllGeoRegions[*]} -eq 0 ]]; then
-					PrintHelper "BOXITEMA" "GEO...." "WARNING:::WARNING" "No GeoRegions Found." >&2
-				else
-					for ((i=0;i<${#AllGeoRegions[*]};i++)); do
-						PrintHelper "BOXITEMA" "GEO$(printf "%04d" "$((${i}+1))")" "${Normal}:::GEOREGION" "${AllGeoRegions[${i}]}" >&2
+				if [[ ${#AllCountries[*]} -eq 0 ]]; then
+
+					PrintHelper "BOXITEMA" "CTY...." "WARNING:::WARNING" "No Countries Found." >&2
+
+				elif [[ ${ListMode} =~ "FOLLOW" ]]; then
+
+					FilterString='.' # Set the filter to grab everything in subsequent calls.
+					for ((i=0;i<${#AllCountries[*]};i++)); do
+
+						if [[ $((${i}%10)) -eq 0 ]] && [[ ${i} -ne 0 ]]; then
+							! GetYorN "Shown ${i}/${#AllCountries[*]} - Show more?" "Yes" "5" \
+								&& ClearLines "3" \
+								&& break
+							ClearLines "2"
+						fi
+
+						Target_COUNTRY[0]=${AllCountries[${i}]%%=>*}
+						Target_COUNTRY[1]=${AllCountries[${i}]##*=>}
+
+						PrintHelper "BOXITEMA" "CTY$(printf "%04d" "$((${i}+1))")" "${Normal}:::REGION/COUNTRY" "${AllCountries[${i}]}" >&2
+
+						case ${ListMode} in
+							"FOLLOW-GEOREGION")
+								PrintHelper "BOXITEMASUBLINEA"
+								! GetObjects "SPECIFICGEOREGION" "countries/${Target_COUNTRY[1]}/geoRegion" 2>/dev/null \
+									&& PrintHelper "BOXITEMASUB" "CTY...." "${FBlack};${BYellow}:::WARNING" "No GeoRegion association was found."
+							;;
+						esac
+
+						[[ $((${i}+1)) -eq ${#AllCountries[*]} ]] \
+							|| PrintHelper "BOXMIDLINEA" >&2
+
 					done
+
+					PrintHelper "BOXFOOTLINEB" >&2
+
+				else
+
+					for ((i=0;i<${#AllCountries[*]};i++)); do
+						PrintHelper "BOXITEMA" "CTY$(printf "%04d" "$((${i}+1))")" "${Normal}:::REGION/COUNTRY" "${AllCountries[${i}]}"
+					done
+
 				fi
 
 				PrintHelper "BOXFOOTLINEA" >&2
@@ -2282,7 +2367,7 @@ function RunUsageReport() {
 		# The user needs to select how to increment the report.
 		[[ ${EventTiming[0]} -le 2 ]] \
 			&& ReportIncrement=( "Hourly" "Daily" "Monthly" ) \
-			|| ReportIncrement=( "Daily" "Monthly" ) # Greater than 2 months will generate too many results for hour incriments.
+			|| ReportIncrement=( "Daily" "Monthly" ) # Greater than 2 months will generate too many results for hour Increments.
 		! GetSelection "How should the report on \"${Target_ENDPOINT[1]}\" be incremented?" "${ReportIncrement[*]}" \
 			&& continue
 		case ${UserResponse} in
@@ -3949,27 +4034,27 @@ function BulkCreateEndpoints() {
 			# Line checking.
 			if [[ ${Target_ENDPOINTNAME} == "MISSINGNAME" ]] || [[ ${Target_ENDPOINTTYPE} == "MISSINGTYPE" ]] || [[ ${Target_NETWORK} == "MISSINGNETWORK" ]] || [[ ${Target_GEOREGION} == "MISSINGGEOREGION" ]]; then
 				AttentionMessage "ERROR" "The following line is missing required context. Ignoring line."
-				let OutputCounter[3]++ # Incriment the failure counter.
+				let OutputCounter[3]++ # Increment the failure counter.
 				let OutputCounter[1]-- # Decriment the valid counter.
 			elif [[ ${#Target_ENDPOINTNAME} -lt 5 ]] || [[ ${#Target_ENDPOINTNAME} -gt 64 ]] || [[ ! ${Target_ENDPOINTNAME} =~ ^[[:alnum:]].*[[:alnum:]]$ ]]; then
 				AttentionMessage "ERROR" "The following line contains a name that does not meet naming criteria. Name must be >=5 chars, <=64 chars, and only alphanumeric. Ignoring line."
-				let OutputCounter[3]++ # Incriment the failure counter.
+				let OutputCounter[3]++ # Increment the failure counter.
 				let OutputCounter[1]-- # Decriment the valid counter.
 			elif [[ ${#Target_NETWORK} -ne 36 ]] || [[ ${#Target_GEOREGION} -ne 36 ]]; then
 				AttentionMessage "ERROR" "The following line contains a Network UUID or GeoRegion UUID that is not 36 chars. Ignoring line."
-				let OutputCounter[3]++ # Incriment the failure counter.
+				let OutputCounter[3]++ # Increment the failure counter.
 				let OutputCounter[1]-- # Decriment the valid counter.
 			elif [[ ${AllEndpointGroups} != "NOENDPOINTGROUPS" ]] && [[ ${#AllEndpointGroups} -lt 36 ]]; then
 				[[ ${AllEndpointGroups} =~ "@" ]] \
 					&& AttentionMessage "ERROR" "The following line contains EndpointGroup UUID(s) which have an email address instead of a UUID. Ignoring line." \
 					|| AttentionMessage "ERROR" "The following line contains EndpointGroup UUID(s) that are in error. Ignoring line."
-				let OutputCounter[3]++ # Incriment the failure counter.
+				let OutputCounter[3]++ # Increment the failure counter.
 				let OutputCounter[1]-- # Decriment the valid counter.
 			elif [[ ${AllAppWANs} != "NOAPPWANS" ]] && [[ ${#AllAppWANs} -lt 36 ]]; then
 				[[ ${AllAppWANs} =~ "@" ]] \
 					&& AttentionMessage "ERROR" "The following line contains AppWAN UUID(s) which have an email address instead of a UUID. Ignoring line." \
 					|| AttentionMessage "ERROR" "The following line contains AppWAN UUID(s) that are in error. Ignoring line."
-				let OutputCounter[3]++ # Incriment the failure counter.
+				let OutputCounter[3]++ # Increment the failure counter.
 				let OutputCounter[1]-- # Decriment the valid counter.
 			fi
 			IFS=$'\n' # Reset field separator.
@@ -4038,7 +4123,7 @@ function BulkCreateEndpoints() {
 		# This Endpoint was newly created.
 		if SetObjects "CREATEENDPOINT" "${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "${Target_GEOREGION}"; then
 
-			let OutputCounter[2]++ # Incriment the success count.
+			let OutputCounter[2]++ # Increment the success count.
 
 			# Determine how to treat the returned registration key.
 			if [[ ${BulkCreateLogRegKey:-FALSE} == "TRUE" ]]; then
@@ -4056,11 +4141,11 @@ function BulkCreateEndpoints() {
 					AttentionMessage "INFO" "  ┣━Request to add Endpoint to EndpointGroup \"${AllEndpointGroups[${i}]}\" started."
 					if SetObjects "ADDENDPOINTTOENDPOINTGROUP" "${StoredAttributes[0]}" "${AllEndpointGroups[${i}]}" &>/dev/null; then
 						AttentionMessage "VALIDATED" "  ┣━Request to add Endpoint to EndpointGroup is complete."
-						let OutputCounter[6]++ # Incriment the pass counter.
+						let OutputCounter[6]++ # Increment the pass counter.
 						EndpointGroupState[${i}]="ADDEPG_OK:${AllEndpointGroups[${i}]}"
 					else
 						AttentionMessage "ERROR" "  ┣━Request to add Endpoint to EndpointGroup did not complete. Endpoint remains available."
-						let OutputCounter[7]++ # Incriment the fail counter.
+						let OutputCounter[7]++ # Increment the fail counter.
 						EndpointGroupState[${i}]="ADDEPG_FAIL:${AllEndpointGroups[${i}]}"
 					fi
 				done
@@ -4074,11 +4159,11 @@ function BulkCreateEndpoints() {
 					AttentionMessage "INFO" "  ┣━Request to add \"${Target_ENDPOINTNAME}\" to AppWAN \"${AllAppWANs[${i}]}\" started."
 					if SetObjects "ADDENDPOINTTOAPPWAN" "${StoredAttributes[0]}" "${AllAppWANs[${i}]}" &>/dev/null; then
 						AttentionMessage "VALIDATED" "  ┣━Request to add \"${Target_ENDPOINTNAME}\" to AppWAN(s) is complete."
-						let OutputCounter[8]++ # Incriment the pass counter.
+						let OutputCounter[8]++ # Increment the pass counter.
 						AppWANState[${i}]="ADDAPW_OK:${AllAppWANs[${i}]}"
 					else
 						AttentionMessage "ERROR" "  ┣━Request to add Endpoint to AppWAN did not complete. Endpoint remains available."
-						let OutputCounter[9]++ # Incriment the fail counter.
+						let OutputCounter[9]++ # Increment the fail counter.
 						AppWANState[${i}]="ADDAPW_FAIL:${AllAppWANs[${i}]}"
 					fi
 				done
@@ -4120,14 +4205,14 @@ function BulkCreateEndpoints() {
 					# Attempt to add to an AppWAN before conclusion?
 					if [[ ${AllEndpointGroups} != "NOENDPOINTGROUPS" ]]; then
 						for ((i=0;i<${#AllEndpointGroups[*]};i++)); do
-							AttentionMessage "INFO" "  ┣━Request to add Endpoint to \"${AllEndpointGroups[${i}]}\" started."
+							AttentionMessage "INFO" "  ┣━Request to add Endpoint to EndpointGroup \"${AllEndpointGroups[${i}]}\" started."
 							if SetObjects "ADDENDPOINTTOENDPOINTGROUP" "${StoredAttributes[0]}" "${AllEndpointGroups[${i}]}" &>/dev/null; then
 								AttentionMessage "VALIDATED" "  ┣━Request to add Endpoint to EndpointGroup is complete."
-								let OutputCounter[6]++ # Incriment the pass counter.
+								let OutputCounter[6]++ # Increment the pass counter.
 								EndpointGroupState[${i}]="ADDEPG_OK:${AllEndpointGroups[${i}]}"
 							else
 								AttentionMessage "ERROR" "  ┣━Request to add Endpoint to EndpointGroup did not complete. Endpoint remains available."
-								let OutputCounter[7]++ # Incriment the fail counter.
+								let OutputCounter[7]++ # Increment the fail counter.
 								EndpointGroupState[${i}]="ADDEPG_FAIL:${AllEndpointGroups[${i}]}"
 							fi
 						done
@@ -4138,14 +4223,14 @@ function BulkCreateEndpoints() {
 					# Attempt to add to an AppWAN before conclusion?
 					if [[ ${AllAppWANs} != "NOAPPWANS" ]]; then
 						for ((i=0;i<${#AllAppWANs[*]};i++)); do
-							AttentionMessage "INFO" "  ┣━Request to add \"${Target_ENDPOINTNAME}\" to \"${AllAppWANs[${i}]}\" started."
+							AttentionMessage "INFO" "  ┣━Request to add Endpoint to AppWAN \"${AllAppWANs[${i}]}\" started."
 							if SetObjects "ADDENDPOINTTOAPPWAN" "${StoredAttributes[0]}" "${AllAppWANs[${i}]}" &>/dev/null; then
 								AttentionMessage "VALIDATED" "  ┣━Request to add Endpoint to AppWAN is complete."
-								let OutputCounter[8]++ # Incriment the pass counter.
+								let OutputCounter[8]++ # Increment the pass counter.
 								AppWANState[${i}]="ADDAPW_OK:${AllAppWANs[${i}]}"
 							else
 								AttentionMessage "ERROR" "  ┣━Request to add Endpoint to AppWAN did not complete. Endpoint remains available."
-								let OutputCounter[9]++ # Incriment the fail counter.
+								let OutputCounter[9]++ # Increment the fail counter.
 								AppWANState[${i}]="ADDAPW_FAIL:${AllAppWANs[${i}]}"
 							fi
 						done
@@ -5002,6 +5087,7 @@ function LaunchMAIN() {
 		"List Services"
 		"List AppWANs"
 		"List GeoRegions"
+		"List Countries"
 	)
 
 	AllMACDOptions=( \
@@ -5058,6 +5144,15 @@ function LaunchMAIN() {
 		"All"
 		"No Associations - Simple List"
 		"No Associations - Derive Detail"
+	)
+
+	FollowGeoRegions=( \
+		"No Associations - Simple List"
+	)
+
+	FollowCountries=( \
+		"GeoRegion"
+		"No Associations - Simple List"
 	)
 
 	MACDTypes=( \
@@ -5250,9 +5345,41 @@ function LaunchMAIN() {
 						;;
 
 						"List GeoRegions")
-							CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/Listing/GeoRegions"
-							AttentionMessage "INFO" "The following is a list of GeoRegions available."
-							GetObjects "GEOREGIONS"
+							while true; do
+								CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/Listing/GeoRegions"
+								! GetSelection "Select GeoRegion associations to follow." "${FollowGeoRegions[*]}" "NONE" \
+									&& break
+								case "${UserResponse}" in
+									"No Associations - Simple List")
+										! GetFilterString \
+											&& continue
+										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of GeoRegions allowed for Network \"${Target_NETWORK[1]}\"."
+										GetObjects "GEOREGIONS"
+									;;
+								esac
+							done
+						;;
+
+						"List Countries")
+							while true; do
+								CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/Listing/Countries"
+								! GetSelection "Select Country associations to follow." "${FollowCountries[*]}" "NONE" \
+									&& break
+								case "${UserResponse}" in
+									"GeoRegion")
+										! GetFilterString \
+											&& continue
+										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Countries and associated GeoRegions allowed for Network \"${Target_NETWORK[1]}\"."
+										GetObjects "COUNTRIES" "FOLLOW-GEOREGION"
+									;;
+									"No Associations - Simple List")
+										! GetFilterString \
+											&& continue
+										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Countries allowed for Network \"${Target_NETWORK[1]}\"."
+										GetObjects "COUNTRIES"
+									;;
+								esac
+							done
 						;;
 					esac
 				done
