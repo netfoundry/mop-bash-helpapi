@@ -1,4 +1,33 @@
-# NAME,TYPE,NETWORK_UUID,GEOREGION_UUID,ENDPOINTGROUP_UUIDS_[OPT],APPWAN_UUIDS_[OPT],EMAIL_[OPT]
-TEST CLIENT,CL,3fd2ba58-24c4-4cd7-b131-ab5de00ed254,9bbca6aa-767c-4c48-b4ab-dac0ead018fc,xxxxxx;xxxxxx,,nic.fragale@netfoundry.io
-TEST GATEWAY,VCPEGW,3fd2ba58-24c4-4cd7-b131-ab5de00ed254,9bbca6aa-767c-4c48-b4ab-dac0ead018fc,,xxxxxx;xxxxxx,
-TEST ZITI CLIENT,ZTCL,3fd2ba58-24c4-4cd7-b131-ab5de00ed254,9bbca6aa-767c-4c48-b4ab-dac0ead018fc,,,nic.fragale@netfoundry.io;kapil.barman@netfoundry.io
+#BulkEndpoints Creation Template.
+# NOTES:
+#  Commented lines with a pound/hash symbol are ignored.
+#  You may open with Microsoft EXCEL as CSV for easy editing. Do NOT save as other formats or extra characters may be inserted.
+#  For OPTIONAL fields, you may leave them blank.
+# NAME: Singular, Required.
+#  Should be limited to less than 64 characters or the MOP may reject the insert.
+# TYPE: Singlular, Required.
+#  GW = An Internet, NetFoundry Hosted, Gateway.
+#  AWSCPEGW = An AWS Cloud, Customer Hosted, Gateway.
+#  AZCPEGW = An Azure Cloud, Customer Hosted, Gateway.
+#  AZSGW = An Azure Stack, Customer Hosted, Gateway.
+#  GCPCPEGW = A Google Cloud, Customer Hosted, Gateway.
+#  ZTGW = A ZITI, NetFoundry Hosted, Bridge Gateway.
+#  ZTNHGW = A ZITI, Customer Hosted, Bridge Gateway.
+#  VCPEGW = A ZITI, Customer Hosted, Bridge Gateway.
+#  CL = A Standard Client.
+#  ZTCL = A Standard Client.
+# NETWORK_UUID: Singluar, Required.
+#  The UUID of the NETWORK.
+# GEOREGION_UUID: Singluar, Required.
+#  The UUID of the target GEOREGION.
+# ENDPOINTGROUP_UUIDS: Multiples, Optional.
+#  The (pre-existing) ENDPOINTGROUP UUID(s), separated by semi-colon, that the Endpoint should be associated to.
+# APPWAN_UUIDS: Multiples, Optional.
+#  The (pre-existing) APPWAN UUID(s), separated by semi-colon, that the Endpoint should be associated to.
+# EMAILS: Multiples, Optional.
+#  The EMAIL addresses, separated by semi-colon, that the Endpoint registration information should be sent to.
+#EXAMPLES:
+# NAME,TYPE,NETWORK_UUID,GEOREGION_UUID,ENDPOINTGROUP_UUIDS,APPWAN_UUIDS,EMAILS
+TEST CLIENT,CL,[NETWORKUUID],[GEOREGIONUUID],[ENDPOINTGROUPUUID];[ENDPOINTGROUPUUID],,someone@domain.com
+TEST GATEWAY,VCPEGW,[NETWORKUUID],[GEOREGIONUUID],,[APPWANUUID];[APPWANUUID],
+TEST ZITI CLIENT,ZTCL,[NETWORKUUID],[GEOREGIONUUID],,,someone@domain.com;someoneelse@domain.com
