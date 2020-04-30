@@ -1,5 +1,5 @@
 # mop-bash-helpapi
-BASH Console for the NetFoundry platform
+BASH Console for the NetFoundry platform.  Provides examples and automations for using the NetFoundry API service.  If you want to learn the NetFoundry API without having to read through, and figuring out how to invoke, the API interactions, then this is for you!
 
 # Contributing
 
