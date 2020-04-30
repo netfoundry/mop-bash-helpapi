@@ -435,9 +435,6 @@ function AttentionMessage() {
 		;;
 		# A validation occurred.
 		"VALIDATED")
-			# If in QUIET mode, just return.
-			[[ ${QuietPrint:-FALSE} == "TRUE" ]] \
-				&& return
 			InputHead[1]="${IconStash[2]}"
 			OutputColor="${Invert};${FLiteGreen};${BBlack}"
 		;;
@@ -4628,13 +4625,13 @@ function ObtainSAFE() {
 		# -rwx------ 1 root wheel 190 Aug 23 15:36 /etc/NetFoundrySAFE/NFRAGALE.SAFE.gpg
 		if [[ ${SAFEDetail[$((${#SAFEDetail[*]}-1))]} == "${SAFEFile}" ]] && ([[ ${SAFEDetail[0]} == "-rwx------" ]] || [[ ${SAFEDetail[0]} == "-rwx------." ]]) && [[ ${SAFEDetail[2]} == "root" ]]; then
 			# The SAFE is valid and permissioned correctly, so read it in.
-			AttentionMessage "VALIDATED" "The SAFE named \"${SAFEFile##*\/}\" was found and correctly permissioned."
+			AttentionMessage "GENERALINFO" "The SAFE named \"${SAFEFile##*\/}\" was found and correctly permissioned."
 			while read -r EachLine; do
 				export ${EachLine}
 			done < <(sudo -s bash -c "export GPG_TTY=\$(tty) && gpg -d -q -o - ${SAFEFile} 2>/dev/null")
 			# Semi-Validate the variables are actually populated correctly.
 			if [[ ${#ThisClientID} -gt 30 ]] && [[ ${#ThisClientSecret} -gt 30 ]]; then
-				AttentionMessage "VALIDATED" "Successfully able to ascertain the API ID and Secret from the API SAFE named \"${SAFEFile##*\/}\"."
+				AttentionMessage "GENERALINFO" "Successfully able to ascertain the API ID and Secret from the API SAFE named \"${SAFEFile##*\/}\"."
 				return 0
 			else
 				GoToExit "3" "Failed to ascertain the API ID and Secret from the API SAFE named \"${SAFEFile##*\/}\"."
