@@ -4,6 +4,7 @@
 # Written by Nic Fragale @ NetFoundry.
 MyWarranty="This program comes without any warranty, implied or otherwise."
 MyLicense="Use of this program falls under the Apache V2 license."
+MyGitHubURL='https://github.com/netfoundry/mop-bash-helpapi'
 ###################################################################################################################
 
 #######################################################################################
@@ -23,6 +24,7 @@ SECONDS="0" # Seconds counting since launched.
 ParentPID="$$" # The PID of this script (AKA the parent that spawns subprocesses).
 MyPkgMgr="UNKNOWN" # The OS of the running system.
 MyName="${0##*/}" # Name (base) of the program.
+TmpDir="/tmp" # The temporary directory this program will use.
 APIConsole="production"
 TeachMode="FALSE" # A special flag that allows emit of certain messages.
 DebugInfo="FALSE" # A special flag that shows extra data from the API system.
@@ -41,6 +43,7 @@ LimitFancy="FALSE" # A flag that hold whether the program can output certain scr
 BulkImportFile="NOTSET" # A variable that holds the location of the Bulk Import File.
 SAFEFile="UNSET" # A variable that holds the name/org of the SAFE file.
 ThisMode="INTERACTIVE" # A variable that holds the work mode of the program.
+QuietPrint="FALSE" # A variable that holds the print flag for quiet output.
 NewLine='
 '
 
@@ -51,7 +54,7 @@ NewLine='
 # Exit trapping.
 trap "GoToExit 2" SIGINT SIGTERM SIGKILL
 trap "GoToExit 5" SIGHUP
-trap "GoToExit 6 \"Your session timed out after ($((${MaxIdle}/60))m) of inactivity.\"" USR1
+trap "GoToExit 6 \"Your session timed out after ($((${MaxIdle}/60))m) of inactivity. (PARENTPID=${ParentPID:-ORPHAN})\"" USR1
 function GoToExit() {
 	# 1/[0=NOERROR 1=NEGATIVE 2=USEREXITCTRLC 3=CRITICALEXIT 4=NOERRORNONINTERATIVE 5=FASTQUIT 6=TIMEOUT 7=AUTOMATIONDONE 8=QUITLEAVEBEARER 9(+)=OTHER] 2/MESSAGE
 	local ControlOptions
@@ -90,7 +93,7 @@ function GoToExit() {
 
 		# Loop until done.
 		while true; do
-			AttentionMessage "INFO" "\"${MyName}\" - Control Options."
+			AttentionMessage "GREENINFO" "\"${MyName}\" - Control Options."
 			! GetSelection "What do you want to do?" "${ControlOptions[*]}" \
 				&& break
 			case ${UserResponse} in
@@ -101,14 +104,14 @@ function GoToExit() {
 				;;
 				"Modify Global Search Filter")
 					GetFilterString \
-						&& AttentionMessage "INFO" "Global Search Filter was updated to \"${PrimaryFilterString}\"." \
-						|| AttentionMessage "INFO" "Global Search Filter remains \"${PrimaryFilterString:-UNSET}\"."
+						&& AttentionMessage "GREENINFO" "Global Search Filter was updated to \"${PrimaryFilterString}\"." \
+						|| AttentionMessage "GREENINFO" "Global Search Filter remains \"${PrimaryFilterString:-UNSET}\"."
 					sleep 2
 				;;
 				"Change Networks")
 					SelectNetwork \
-						&& AttentionMessage "INFO" "Network was updated to \"${Target_NETWORK[1]}\"." \
-						|| AttentionMessage "INFO" "Network remains \"${Target_NETWORK[1]:-UNSET}\"."
+						&& AttentionMessage "GREENINFO" "Network was updated to \"${Target_NETWORK[1]}\"." \
+						|| AttentionMessage "GREENINFO" "Network remains \"${Target_NETWORK[1]:-UNSET}\"."
 					sleep 2
 				;;
 				"Organization Search")
@@ -122,45 +125,45 @@ function GoToExit() {
 					GetYorN "SPECIAL-PAUSE"
 				;;
 				"Toggle Fancy Printing")
-					AttentionMessage "INFO" "Fancy Printing makes the CLI appear like a 90s era computer."
-					AttentionMessage "INFO" "Limit fancy printing is currently set to \"$(SetLimitFancy "GETSTATE" && echo "TRUE" || echo "FALSE")\"."
+					AttentionMessage "GREENINFO" "Fancy Printing makes the CLI appear like a 90s era computer."
+					AttentionMessage "GREENINFO" "Limit fancy printing is currently set to \"$(SetLimitFancy "GETSTATE" && echo "TRUE" || echo "FALSE")\"."
 					GetYorN "Toggle the state?" "Yes" \
 						&& SetLimitFancy "TOGGLE" \
-						&& AttentionMessage "INFO" "Limit fancy printing state was toggled." \
-						|| AttentionMessage "INFO" "No changes were made."
+						&& AttentionMessage "GREENINFO" "Limit fancy printing state was toggled." \
+						|| AttentionMessage "GREENINFO" "No changes were made."
 					sleep 2
 				;;
 				"Toggle Debug Messaging")
-					AttentionMessage "INFO" "Debug Messaging will help you ascertain API interaction errors by showing return headers."
-					AttentionMessage "INFO" "Debug Messaging is currently set to \"${DebugInfo}\"."
+					AttentionMessage "GREENINFO" "Debug Messaging will help you ascertain API interaction errors by showing return headers."
+					AttentionMessage "GREENINFO" "Debug Messaging is currently set to \"${DebugInfo}\"."
 					GetYorN "Toggle the Messaging?" "Yes"
 					if [[ $? -eq 0 ]]; then
 						if [[ ${DebugInfo} == "TRUE" ]]; then
 							DebugInfo="FALSE"
-							AttentionMessage "INFO" "Debug Messaging was disabled."
+							AttentionMessage "GREENINFO" "Debug Messaging was disabled."
 						elif [[ ${DebugInfo} == "FALSE" ]]; then
 							DebugInfo="TRUE"
-							AttentionMessage "INFO" "Debug Messaging was enabled."
+							AttentionMessage "GREENINFO" "Debug Messaging was enabled."
 						fi
 					else
-						AttentionMessage "INFO" "Debug Messaging was not changed."
+						AttentionMessage "GREENINFO" "Debug Messaging was not changed."
 					fi
 					sleep 2
 				;;
 				"Toggle Teaching Mode")
-					AttentionMessage "INFO" "Teaching Mode shows you how to call the NetFoundry API for a given interaction."
-					AttentionMessage "INFO" "Teaching Mode is currently set to \"${TeachMode}\"."
+					AttentionMessage "GREENINFO" "Teaching Mode shows you how to call the NetFoundry API for a given interaction."
+					AttentionMessage "GREENINFO" "Teaching Mode is currently set to \"${TeachMode}\"."
 					GetYorN "Toggle the Mode?" "Yes"
 					if [[ $? -eq 0 ]]; then
 						if [[ ${TeachMode} == "TRUE" ]]; then
 							TeachMode="FALSE"
-							AttentionMessage "INFO" "Teaching Mode was disabled."
+							AttentionMessage "GREENINFO" "Teaching Mode was disabled."
 						elif [[ ${TeachMode} == "FALSE" ]]; then
 							TeachMode="TRUE"
-							AttentionMessage "INFO" "Teaching Mode was enabled."
+							AttentionMessage "GREENINFO" "Teaching Mode was enabled."
 						fi
 					else
-						AttentionMessage "INFO" "Teaching Mode was not changed."
+						AttentionMessage "GREENINFO" "Teaching Mode was not changed."
 					fi
 					sleep 2
 				;;
@@ -168,7 +171,7 @@ function GoToExit() {
 			ClearLines "ALL"
 		done
 
-		AttentionMessage "INFO" "Now returning to normal operation."
+		AttentionMessage "GREENINFO" "Now returning to normal operation."
 		sleep 2
 		tput rmcup # Return screen contents.
 		trap "GoToExit 2" SIGINT SIGTERM SIGKILL # Reset CTRL+C events.
@@ -182,7 +185,7 @@ function GoToExit() {
 		DestroyBearerToken \
 			|| AttentionMessage "ERROR" "Your Bearer Token could not be destroyed."
 		AttentionMessage "WARNING" "REMINDER, never leave your credentials saved on the device or held in buffer in an open window."
-		AttentionMessage "INFO" "Exiting. [RunTime=$((${SECONDS}/60))m $((${SECONDS}%60))s]"
+		AttentionMessage "GREENINFO" "Exiting. [RunTime=$((${SECONDS}/60))m $((${SECONDS}%60))s]"
 		TrackLastTouch "DIE"
 		[[ ! -z "${2}" ]] \
 			&& exit ${1} \
@@ -203,7 +206,7 @@ function GoToExit() {
 		DestroyBearerToken \
 			|| AttentionMessage "ERROR" "Your Bearer Token could not be destroyed."
 		AttentionMessage "WARNING" "REMINDER, never leave your credentials saved on the device or held in buffer in an open window."
-		AttentionMessage "INFO" "Exiting. [RunTime=$((${SECONDS}/60))m $((${SECONDS}%60))s]"
+		AttentionMessage "GREENINFO" "Exiting. [RunTime=$((${SECONDS}/60))m $((${SECONDS}%60))s]"
 		TrackLastTouch "DIE"
 		[[ ! -z "${2}" ]] \
 			&& exit ${1} \
@@ -215,7 +218,7 @@ function GoToExit() {
 		AttentionMessage "REDINFO" "Please be aware that your Bearer Token persists as shown below."
 		echo ${NFN_BEARER:-UNRESOLVED}
 		AttentionMessage "WARNING" "REMINDER, never leave your credentials saved on the device or held in buffer in an open window."
-		AttentionMessage "INFO" "Exiting. [RunTime=$((${SECONDS}/60))m $((${SECONDS}%60))s]"
+		AttentionMessage "GREENINFO" "Exiting. [RunTime=$((${SECONDS}/60))m $((${SECONDS}%60))s]"
 		TrackLastTouch "DIE"
 		exit 0
 
@@ -228,7 +231,7 @@ function GoToExit() {
 		DestroyBearerToken \
 			|| AttentionMessage "ERROR" "Your Bearer Token could not be destroyed."
 		AttentionMessage "WARNING" "REMINDER, never leave your credentials saved on the device or held in buffer in an open window."
-		AttentionMessage "INFO" "Exiting. [RunTime=$((${SECONDS}/60))m $((${SECONDS}%60))s]"
+		AttentionMessage "GREENINFO" "Exiting. [RunTime=$((${SECONDS}/60))m $((${SECONDS}%60))s]"
 		TrackLastTouch "DIE"
 		exit ${1:-0}
 
@@ -305,11 +308,11 @@ function TrackLastTouch() {
 
 	if [[ ${ToState} == "UPDATE" ]]; then
 
-		echo "${SECONDS}" >/tmp/FIFO-${ParentPID:-ORPHAN}.pipe
+		echo "${SECONDS}" >${TmpDir}/FIFO-${ParentPID:-ORPHAN}.pipe
 
 	elif [[ ${ToState} == "DIE" ]]; then
 
-		echo "-${MaxIdle}" >/tmp/FIFO-${ParentPID:-ORPHAN}.pipe
+		echo "-${MaxIdle}" >${TmpDir}/FIFO-${ParentPID:-ORPHAN}.pipe
 
 	elif [[ ${ToState} == "INITIATE" ]]; then
 
@@ -318,14 +321,12 @@ function TrackLastTouch() {
 			# Until the trigger to end appears, read from the FIFO pipe and set the local variable.
 			while true; do
 				sleep 5
-				read -t 1 <>/tmp/FIFO-${ParentPID:-ORPHAN}.pipe LastTouchSECONDS 2>/dev/null
-					#|| AttentionMessage "CRITICAL" "Could not ascertain \"LastTouchSECONDS\" from \"/tmp/FIFO-${ParentPID:-ORPHAN}.pipe\"."
+				read -t 1 <>${TmpDir}/FIFO-${ParentPID:-ORPHAN}.pipe LastTouchSECONDS 2>/dev/null \
+					|| AttentionMessage "CRITICAL" "Could not ascertain \"LastTouchSECONDS\" from \"${TmpDir}/FIFO-${ParentPID:-ORPHAN}.pipe\"."
 				if [[ $((${MaxIdle}-(${SECONDS}-${LastTouchSECONDS:-0}))) -le 0 ]]; then
 					# Tell the parent to shutdown and break out of the local loop which will shutdown this thread too.
-					sleep 3
-					kill -USR1 ${ParentPID} &>/dev/null \
-						&& AttentionMessage "TIMEWARNING" "Session timeout due to no activity. (PARENTPID=${ParentPID:-ORPHAN})"
-					rm -f /tmp/FIFO-${ParentPID:-ORPHAN}.pipe
+					kill -USR1 ${ParentPID} &>/dev/null
+					rm -f ${TmpDir}/FIFO-${ParentPID:-ORPHAN}.pipe
 					break
 				elif [[ $((${MaxIdle}-(${SECONDS}-${LastTouchSECONDS:-0}))) -le 60 ]] && [[ $((${MaxIdle}-(${SECONDS}-${LastTouchSECONDS:-0}))) -gt 0 ]]; then
 					tput sc
@@ -412,7 +413,10 @@ function AttentionMessage() {
 
 	case ${InputHead} in
 		# Something of interest.
-		"INFO"|"GREENINFO")
+		"GENERALINFO"|"GREENINFO")
+			# If in QUIET mode, just return.
+			[[ ${InputHead:-ERROR} == "GENERALINFO" ]] && [[ ${QuietPrint:-FALSE} == "TRUE" ]] \
+				&& return
 			InputHead[1]="${IconStash[0]}"
 			InputHead[0]="INFO"
 			OutputColor="${Invert};${FLiteGreen};${BBlack}"
@@ -431,6 +435,9 @@ function AttentionMessage() {
 		;;
 		# A validation occurred.
 		"VALIDATED")
+			# If in QUIET mode, just return.
+			[[ ${QuietPrint:-FALSE} == "TRUE" ]] \
+				&& return
 			InputHead[1]="${IconStash[2]}"
 			OutputColor="${Invert};${FLiteGreen};${BBlack}"
 		;;
@@ -467,7 +474,7 @@ function AttentionMessage() {
 		;;
 	esac
 
-	# The remainder of the pass-in is subcomment.
+	# The remainder of the pass-in is sub-comment.
 	shift 2
 	SubCommentText="$*"
 
@@ -478,13 +485,13 @@ function AttentionMessage() {
 	if [[ "${CommentText}" == "${LastText}" ]]; then
 		printf "\e[${OutputColor}m| %-$((1+${SpecialSyntaxAdder}))b %-10s |\e[1;${Normal}m " "${InputHead[1]}" "${InputHead[0]}"
 		FancyPrint "${CommentText}" "0" "0"
-	# This output mode means that output should obide by original intent to apply decoration.
+	# This output mode means that output should abide by original intent to apply decoration.
 	else
 		printf "\e[${OutputColor}m| %-$((1+${SpecialSyntaxAdder}))b %-10s |\e[1;${Normal}m " "${InputHead[1]}" "${InputHead[0]}"
 		FancyPrint "${CommentText}" "5" "1"
 	fi
 
-	# Print subcomments plainly if they exist.
+	# Print sub-comments plainly if they exist.
 	[[ ${SubCommentText} ]] \
 		&& echo "${SubCommentText}"
 
@@ -498,7 +505,7 @@ function PrintHelper() {
 	function ColorConvert() {
 		# 1/PRECONVERTED
 		local PreConverted="${1}"
-		shopt -s extglob # For pattern matching inside this subshell.
+		shopt -s extglob # For pattern matching inside this sub-shell.
 		case "${PreConverted}" in
 			"000")
 				echo "${Normal}"
@@ -856,6 +863,10 @@ function FancyPrint() {
 
 	# Default action is to print the logo.
 	if [[ ${ThisLineText} =~ "LOGO" ]]; then
+
+		[[ ${QuietPrint:-FALSE} == "TRUE" ]] \
+			&& return # Nothing to do.
+
 		ThisLogoA[0]='0:::                                                                                                                 '
 		ThisLogoA[1]='1::: ███    ██ ███████ ████████ ███████  ██████  ██    ██ ███    ██ ██████  ██████  ██    ██      █████  ██████  ██  '
 		ThisLogoA[2]='2::: ████   ██ ██         ██    ██      ██    ██ ██    ██ ████   ██ ██   ██ ██   ██  ██  ██      ██   ██ ██   ██ ██  '
@@ -876,7 +887,7 @@ function FancyPrint() {
 		# Only if the cursor manipulation program is available.
 		if [[ ${ThisLineText} != "PLAINLOGO" ]] && [[ ${LimitFancy} == "FALSE" ]]; then
 
-			# Where in the program is this occuring?
+			# Where in the program is this occurring?
 			if [[ ${ThisLineText} == "ENTERLOGO" ]] || [[ ${ThisLineText} == "EXITLOGO" ]]; then
 				ClearLines "ALL"
 				reset
@@ -915,7 +926,7 @@ function FancyPrint() {
 		fi
 		echo
 
-	# Otherwise, print the input line at the output speedfactor and color.
+	# Otherwise, print the input line at the output speed factor and color.
 	else
 
 		[[ ${LimitFancy} == "FALSE" ]] \
@@ -1135,9 +1146,9 @@ function GetObjectName() {
 		&& [[ ${#UserResponse} -le 64 ]] \
 		&& [[ ${UserResponse} =~ ^[[:alnum:]].*[[:alnum:]]$ ]]; do
 		AttentionMessage "WARNING" "Ensure proper Console syntax with the following rules."
-		AttentionMessage "INFO" "The name must be at least 5 characters long and can be up to 64 characters long."
-		AttentionMessage "INFO" "It must begin with an alphanumeric character, and it must end with an alphanumeric."
-		AttentionMessage "INFO" "The name may contain alphanumeric characters, \" \", \".\", or \"-\"."
+		AttentionMessage "GENERALINFO" "The name must be at least 5 characters long and can be up to 64 characters long."
+		AttentionMessage "GENERALINFO" "It must begin with an alphanumeric character, and it must end with an alphanumeric."
+		AttentionMessage "GENERALINFO" "The name may contain alphanumeric characters, \" \", \".\", or \"-\"."
 		! GetResponse "Please provide a name ${ContextQuestion[0]}." "${GetObjectNameLast:-NONE}" \
 			&& return 1
 		UserResponse=${UserResponse//[\_\?\"\'\;\:\+\=\,\!\@\#\$\%\^\&\*\(\)\|\/\\\<\>\[\]\{\}]/-}
@@ -1152,18 +1163,18 @@ function GetObjectName() {
 #################################################################################
 # Help the user with filter syntax.
 function FilterHelp() {
-	AttentionMessage "INFO" "Filter Function Help."
+	AttentionMessage "GENERALINFO" "Filter Function Help."
 	FancyPrint $(printf "%s\n" 'The filter function utilizes Linux program "egrep" with option "-i" for case in-sensitivity and option "-E" for extended regular expressions.') "1" "0"
 	FancyPrint $(printf "%s\n" 'Any REGEX pattern you can use in "egrep" normally, you can use here against the object listing you have chosen.') "1" "0"
-	FancyPrint $(printf "%s\n" 'The filter function only applies to the initial list of returned objects from the API and not the followed associations.') "1" "0"
-	echo
+	FancyPrint $(printf "%s\n\n" 'The filter function only applies to the initial list of returned objects from the API and not the followed associations.') "1" "0"
+
 	FancyPrint $(printf "%s\n" 'Regular Examples...') "1" "1"
 	FancyPrint $(printf "%-30s %s\n" 'Singapore' 'Return objects that have "Singapore" contained within their name.') "0" "0"
 	FancyPrint $(printf "%-30s %s\n" 'Singapore.*DC.*Backup' 'Return objects that have "Singa[anychars]DC[anychars]Backup" contained within their name.') "0" "0"
 	FancyPrint $(printf "%-30s %s\n" 'Unit1.*0' 'Return objects that have "Unit1[anychars]5" contained within their name.') "0" "0"
 	FancyPrint $(printf "%-30s %s\n" 'Kapil|Dipesh|Unit.*Singapore' 'Return objects that have either "Kapil" or "Dipesh" or "Unit[anychars]Singapore" contained within their name.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" '*:::Kapil Singapore=>*' 'Return EXACTLY the object that has "Kapil Singapore" as their name.') "0" "0"
-	echo
+	FancyPrint $(printf "%-30s %s\n\n" '*:::Kapil Singapore=>*' 'Return EXACTLY the object that has "Kapil Singapore" as their name.') "0" "0"
+
 	FancyPrint $(printf "%s\n" 'Special Endpoint Only Examples...') "1" "1"
 	FancyPrint $(printf "%-30s %s\n" '100:::' 'Return all Endpoint objects in the UNREGISTERED state.') "0" "0"
 	FancyPrint $(printf "%-30s %s\n" '200:::' 'Return all Endpoint objects in the OFFLINE state.') "0" "0"
@@ -1179,17 +1190,17 @@ function FilterHelp() {
 	FancyPrint $(printf "%-30s %s\n" ':::GCPCPEGW:::' 'Return all Endpoint objects that are GCP/GOOGLE GATEWAYS.') "0" "0"
 	FancyPrint $(printf "%-30s %s\n" ':::ZTGW:::' 'Return all Endpoint objects that are HOSTED ZITI BRIDGE GATEWAYS.') "0" "0"
 	FancyPrint $(printf "%-30s %s\n" ':::ZTNHGW:::' 'Return all Endpoint objects that are PRIVATE ZITI BRIDGE GATEWAYS.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" ':::VCPEGW:::' 'Return all Endpoint objects that are GENERIC VM GATEWAYS.') "0" "0"
-	echo
+	FancyPrint $(printf "%-30s %s\n\n" ':::VCPEGW:::' 'Return all Endpoint objects that are GENERIC VM GATEWAYS.') "0" "0"
+
 	FancyPrint $(printf "%s\n" 'Combination Special Endpoint Only Examples...') "1" "1"
 	FancyPrint $(printf "%-30s %s\n" '200:::CL:::Dipesh' 'Return all Endpoint objects that are OFFLINE, are a CLIENT, and begin with "Dipesh" in their name.') "0" "0"
 	FancyPrint $(printf "%-30s %s\n" '300:::.*:::.*Kapil' 'Return all Endpoint objects that are ONLINE, are ANY TYPE, and begin with "[anychars]Kapil" in their name.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" '(ERR|200):::CL' 'Return all Endpoint objects that are OFFLINE or in ERROR and are a CLIENT.') "0" "0"
-	echo
+	FancyPrint $(printf "%-30s %s\n\n" '(ERR|200):::CL' 'Return all Endpoint objects that are OFFLINE or in ERROR and are a CLIENT.') "0" "0"
+
 	FancyPrint $(printf "%s\n" 'Special Services Only Examples...') "1" "1"
 	FancyPrint $(printf "%-30s %s\n" ':::GW:::' 'Return all Service objects that are the type "GATEWAY".') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" ':::CS:::' 'Return all Service objects that are the type "CLIENTSERVER".') "0" "0"
-	echo
+	FancyPrint $(printf "%-30s %s\n\n" ':::CS:::' 'Return all Service objects that are the type "CLIENTSERVER".') "0" "0"
+
 	FancyPrint $(printf "%s\n" 'Navigation...') "1" "1"
 	FancyPrint $(printf "%-30s %s\n" 'BACK' 'Go back to the previous prompt.') "0" "0"
 	FancyPrint $(printf "%-30s %s\n" 'QUIT' 'Completely exit the program.') "0" "0"
@@ -1209,7 +1220,7 @@ function GetFilterString() {
 	while true; do
 
 		[[ ${FilterPrompt} != "" ]] \
-			&& AttentionMessage "INFO" "${FilterPrompt}"
+			&& AttentionMessage "GENERALINFO" "${FilterPrompt}"
 
 		! GetResponse "Enter a REGEX/GREP phrase to filter results against. [HINT: NoFilter=\".\"] [HELP=\"HELPME\"]" "${PrimaryFilterString:-.}" \
 			&& return 1
@@ -1275,7 +1286,7 @@ function GetObjects() {
 		! GetSelection "Derive more detail on which of the following?" "${InputList[*]}" \
 			&& return 0
 		ProcessResponse "${GETSyntax}" "${APIRESTURL}/networks/${Target_NETWORK[0]}/${InputType}/${UserResponse##*=>}" "200" \
-			&& AttentionMessage "INFO" "The following is derived detail for \"${UserResponse%%=>*}\"." \
+			&& AttentionMessage "GENERALINFO" "The following is derived detail for \"${UserResponse%%=>*}\"." \
 			&& echo ${OutputJSON} | jq 2>/dev/null
 	}
 
@@ -2399,7 +2410,7 @@ function RunUsageReport() {
 			done
 		fi
 
-		AttentionMessage "INFO" "Searching and generating (${EventTiming[0]} Month(s) + Current Month, per ${EventTiming[1]}) usage report for \"${Target_ENDPOINT[1]}\"."
+		AttentionMessage "GENERALINFO" "Searching and generating (${EventTiming[0]} Month(s) + Current Month, per ${EventTiming[1]}) usage report for \"${Target_ENDPOINT[1]}\"."
 		# The return code was TRUE/0.
 		if SearchShards "${Target_ENDPOINT[3]}" "now-${EventTiming[0]}M" "now" "${EventTiming[1]}" "${Target_ENDPOINT[2]}"; then
 
@@ -2515,7 +2526,7 @@ function RunUsageReport() {
 						SaveShards=( ${SearchShardsReturn[*]} )
 
 						# At this point, there is a valid FROM and TO time period.
-						AttentionMessage "INFO" "Searching and generating (${EventTiming[1]} of ${DrillTiming[0]:0:${DateFormat}}) usage breakdown report for \"${Target_ENDPOINT[1]}\"."
+						AttentionMessage "GENERALINFO" "Searching and generating (${EventTiming[1]} of ${DrillTiming[0]:0:${DateFormat}}) usage breakdown report for \"${Target_ENDPOINT[1]}\"."
 
 						# The return code was TRUE/0.
 						if SearchShards "GETNETWORKDRILLUSAGE" "${DrillTiming[0]}" "${DrillTiming[1]}" "${EventTiming[1]}"; then
@@ -2801,7 +2812,7 @@ function RunEventReport() {
 			"FINALREPORT")
 				InitEpoch="${2}"
 				EndEpoch="${3}"
-				AttentionMessage "INFO" "Final report for \"${Target_ENDPOINT[0]}\"."
+				AttentionMessage "GENERALINFO" "Final report for \"${Target_ENDPOINT[0]}\"."
 				printf "%-35s: %s\n" \
 					"Report Begin" \
 					"$(date -d @${InitEpoch})"
@@ -2880,7 +2891,7 @@ function RunEventReport() {
 		EventTiming[2]="$((${EventTiming[1]}*86400))" # The days requested factor in seconds.
 		EventTiming[3]="$((${EventTiming[0]}-${EventTiming[2]}))" # The beginning of the search in epoch.
 
-		AttentionMessage "INFO" "Searching and generating (${EventTiming[1]} Days) Endpoint events report for \"${Target_ENDPOINT[1]}\"."
+		AttentionMessage "GENERALINFO" "Searching and generating (${EventTiming[1]} Days) Endpoint events report for \"${Target_ENDPOINT[1]}\"."
 		# The return code was TRUE/0.
 		if SearchShards "GETSPECIFICSTATUS" "${EventTiming[3]}000" "${EventTiming[0]}000" "${Target_ENDPOINT[2]}"; then
 
@@ -3028,7 +3039,7 @@ function RunMacro() {
 			for EachNetwork in ${AllNetworksExt[*]}; do
 				Target_NETWORK[0]="${EachNetwork##*=>}" # UUID.
 				Target_NETWORK[1]="${EachNetwork%%=>*}" # Name.
-				AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of criteria matching Endpoints, EndpointGroups, Services, or AppWANs in Network \"${Target_NETWORK[1]}\"."
+				AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of criteria matching Endpoints, EndpointGroups, Services, or AppWANs in Network \"${Target_NETWORK[1]}\"."
 				GetObjects "ENDPOINTS"
 				GetObjects "ENDPOINTGROUPS"
 				GetObjects "SERVICES"
@@ -3054,7 +3065,7 @@ function RunMacro() {
 				BulkImportFile="${UserResponse}"
 				case ${BulkImportFile} in
 					"LS"|"ls")
-						AttentionMessage "INFO" "The following is a list of files/folders in your local/relative directory."
+						AttentionMessage "GENERALINFO" "The following is a list of files/folders in your local/relative directory."
 						(pwd)
 						(ls .)
 						continue
@@ -3399,7 +3410,7 @@ function SelectOrganization() {
 	# Auto select the Organization if there is only one.
 	if [[ ${#AllOrganizations[*]} -eq 1 ]]; then
 
-		AttentionMessage "INFO" "Auto-selecting singular Organization found \"${AllOrganizations[0]}\"."
+		AttentionMessage "GREENINFO" "Auto-selecting singular Organization found \"${AllOrganizations[0]}\"."
 		Target_ORGANIZATION[0]="${AllOrganizations[0]##*=>}"
 		Target_ORGANIZATION[1]="${AllOrganizations[0]%%=>*}"
 		return 0
@@ -3425,7 +3436,7 @@ function SelectNetwork() {
 	# Auto select the Network if there is only one.
 	if [[ ${#AllNetworks[*]} -eq 1 ]]; then
 
-		AttentionMessage "INFO" "Auto-selecting singular Network found \"${AllNetworks[0]}\"."
+		AttentionMessage "GREENINFO" "Auto-selecting singular Network found \"${AllNetworks[0]}\"."
 		Target_NETWORK[0]="${AllNetworks[0]##*=>}"
 		Target_NETWORK[1]="${AllNetworks[0]%%=>*}"
 		return 0
@@ -3459,7 +3470,7 @@ function CreateAppWAN() {
 	GetYorN "Ready?" "No" \
 		|| return 0
 
-	AttentionMessage "INFO" "Creating AppWAN \"${Target_APPWANNAME}\"."
+	AttentionMessage "GENERALINFO" "Creating AppWAN \"${Target_APPWANNAME}\"."
 	SetObjects "CREATEAPPWAN" "${Target_APPWANNAME}" \
 		&& AttentionMessage "VALIDATED" "Request to create AppWAN is complete." \
 		|| (AttentionMessage "ERROR" "FAILED! Request to create AppWAN.  See message below." \
@@ -3482,7 +3493,7 @@ function CreateEndpointGroup() {
 	GetYorN "Ready?" "No" \
 		|| return 0
 
-	AttentionMessage "INFO" "Creating EndpointGroup \"${Target_ENDPOINTGROUPNAME}\"."
+	AttentionMessage "GENERALINFO" "Creating EndpointGroup \"${Target_ENDPOINTGROUPNAME}\"."
 	SetObjects "CREATEENDPOINTGROUP" "${Target_ENDPOINTGROUPNAME}" \
 		&& AttentionMessage "VALIDATED" "Request to create EndpointGroup is complete." \
 		|| (AttentionMessage "ERROR" "FAILED! Request to create EndpointGroup.  See message below." \
@@ -3504,7 +3515,7 @@ function CreateInternetServices() {
 	) # All Internet NETWORK/CIDR combinations which avoid RFC1918 private spaces.
 
 	# Ask the user which Gateway.
-	AttentionMessage "INFO" "Fetching all Gateway Endpoints in Network \"${Target_NETWORK[1]}\"."
+	AttentionMessage "GENERALINFO" "Fetching all Gateway Endpoints in Network \"${Target_NETWORK[1]}\"."
 	GetObjects "GATEWAYS" &>/dev/null
 
 	# The user needs to select a Gateway within the Network to target.
@@ -3519,7 +3530,7 @@ function CreateInternetServices() {
 
 	# Tell the user what Services are currently associated to the Gateway they targeted.
 	PrimaryFilterString="${Target_GATEWAY[0]#*\-}"
-	AttentionMessage "INFO" "The following is a list of Services and associated Endpoints with \"${Target_GATEWAY[1]}\" in Network \"${Target_NETWORK[1]}\"."
+	AttentionMessage "GREENINFO" "The following is a list of Services and associated Endpoints with \"${Target_GATEWAY[1]}\" in Network \"${Target_NETWORK[1]}\"."
 	GetObjects "SERVICES" "FOLLOW-ENDPOINTS"
 
 	AttentionMessage "WARNING" "You are about to create (${#AllInternetServices[*]}) new Services associated to Gateway Endpoint \"${Target_GATEWAY[1]}\" in Network \"${Target_NETWORK[1]}\"."
@@ -3528,7 +3539,7 @@ function CreateInternetServices() {
 		|| return 0
 
 	# First, create the AppWAN the Services will reside in.
-	AttentionMessage "INFO" "Creating AppWAN \"${Target_APPWANNAME[0]}\"."
+	AttentionMessage "GREENINFO" "Creating AppWAN \"${Target_APPWANNAME[0]}\"."
 	if SetObjects "CREATEAPPWAN" "${Target_APPWANNAME}"; then
 		Target_APPWANNAME[1]="${SetObjectReturn##*=>}" # The UUID of the AppWAN.
 	else
@@ -3544,7 +3555,7 @@ function CreateInternetServices() {
 		GatewayIP="${AllInternetServices[${i}]%%\/*}" # WWW.XXX.YYY.ZZZ
 		InterceptIP="${AllInternetServices[${i}]%%\/*}" # WWW.XXX.YYY.ZZZ
 		InterceptCIDR="${AllInternetServices[${i}]##*\/}" # [1-32]
-		AttentionMessage "INFO" "[$((${i}+1))/${#AllInternetServices[*]}] Adding Service \"${FullName}\". [INGRESS > EGRESS : ${InterceptIP}/${InterceptCIDR} > ${GatewayIP}/${InterceptCIDR}]"
+		AttentionMessage "GREENINFO" "[$((${i}+1))/${#AllInternetServices[*]}] Adding Service \"${FullName}\". [INGRESS > EGRESS : ${InterceptIP}/${InterceptCIDR} > ${GatewayIP}/${InterceptCIDR}]"
 		if SetObjects "CREATENETSERVICE" "${Target_GATEWAY[0]}" "${FullName}" "${InterceptIP}" "${GatewayIP}" "${InterceptCIDR}"; then
 			ServicesAddedArray=( "${SetObjectReturn##*=>}" ${ServicesAddedArray[*]} )
 		else
@@ -3563,7 +3574,7 @@ function CreateInternetServices() {
 	fi
 
 	# Finally, associate all Services to the AppWAN.
-	AttentionMessage "INFO" "Associating all (${#AllInternetServices[*]}) Internet Services to AppWAN \"${Target_APPWANNAME[0]}\"."
+	AttentionMessage "GREENINFO" "Associating all (${#AllInternetServices[*]}) Internet Services to AppWAN \"${Target_APPWANNAME[0]}\"."
 	if SetObjects "ADDSERVICETOAPPWAN" "${ServicesAddedArray[*]}" "${Target_APPWANNAME[1]}"; then
 		AttentionMessage "VALIDATED" "Successfully associated (${#AllInternetServices[*]}) Internet Services to AppWAN \"${Target_APPWANNAME[0]}\"."
 		return 0
@@ -3594,7 +3605,7 @@ function ChangeObjectName() {
 				&& return 0
 			Target_OBJECTNEW="${UserResponse}"
 
-			AttentionMessage "INFO" "Re-naming ${Target_OBJECTTYPE} \"${Target_OBJECTOLD%%=>*}\" to \"${Target_OBJECTNEW}\"."
+			AttentionMessage "GREENINFO" "Re-naming ${Target_OBJECTTYPE} \"${Target_OBJECTOLD%%=>*}\" to \"${Target_OBJECTNEW}\"."
 			! SetObjects "CHANGE${Target_OBJECTTYPE}NAME" "${Target_OBJECTOLD}" "${Target_OBJECTNEW}" \
 				&& AttentionMessage "ERROR" "Re-naming of object failed. Object remains unchanged." \
 				&& echo "MESSSAGE: \"${SetObjectReturn:-NO MESSAGE RETURNED}\"." \
@@ -3618,19 +3629,19 @@ function ModifyEndpointAssociations() {
 		PrimaryFilterString='.' # Select all.
 		! GetFilterString "Narrow the Endpoints for modification selection." \
 			&& return 0
-		AttentionMessage "INFO" "Fetching list (FILTER [${PrimaryFilterString:-.}]) of Endpoints in Network \"${Target_NETWORK[1]}\"."
+		AttentionMessage "GENERALINFO" "Fetching list (FILTER [${PrimaryFilterString:-.}]) of Endpoints in Network \"${Target_NETWORK[1]}\"."
 		GetObjects "ENDPOINTS" &>/dev/null
 		EndpointSelectorNetwork=( ${AllEndpoints[*]/???:::/} )
 	elif [[ ${Target_ASSOCIATION[1]} == "APPWAN" ]]; then
 		PrimaryFilterString='.' # Select all.
 		! GetFilterString "Narrow the Endpoints for modification selection." \
 			&& return 0
-		AttentionMessage "INFO" "Fetching list (FILTER [${PrimaryFilterString:-.}]) of Endpoints in Network \"${Target_NETWORK[1]}\"."
+		AttentionMessage "GENERALINFO" "Fetching list (FILTER [${PrimaryFilterString:-.}]) of Endpoints in Network \"${Target_NETWORK[1]}\"."
 		GetObjects "ENDPOINTS" &>/dev/null
 		PrimaryFilterString='.' # Select all.
 		! GetFilterString "Narrow the EndpointGroups for modification selection." \
 			&& return 0
-		AttentionMessage "INFO" "Fetching list (FILTER [${PrimaryFilterString:-.}]) of EndpointGroups in Network \"${Target_NETWORK[1]}\"."
+		AttentionMessage "GENERALINFO" "Fetching list (FILTER [${PrimaryFilterString:-.}]) of EndpointGroups in Network \"${Target_NETWORK[1]}\"."
 		GetObjects "ENDPOINTGROUPS" &>/dev/null
 		EndpointSelectorNetwork=( ${AllEndpoints[*]/???:::/} ${AllEndpointGroups[*]/#/GROUP:::} )
 	fi
@@ -3639,15 +3650,15 @@ function ModifyEndpointAssociations() {
 	# Fill the selectortoggle array with the same context above and append "ASSOCIATED" to them. This array will be changable.
 	PrimaryFilterString='.' # All Endpoints are required, so clear the filter.
 	if [[ ${Target_ASSOCIATION[1]} == "ENDPOINTGROUP" ]]; then
-		AttentionMessage "INFO" "Fetching all Endpoints associated to ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\" in Network \"${Target_NETWORK[1]}\"."
+		AttentionMessage "GENERALINFO" "Fetching all Endpoints associated to ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\" in Network \"${Target_NETWORK[1]}\"."
 		GetObjects "ENDPOINTS" "endpointGroups/${Target_ASSOCIATION[2]##*=>}/endpoints" &>/dev/null
 		EndpointSelectorGroup=( ${AllEndpoints[*]/???:::/} )
 		EndpointSelectorToggle=( ${EndpointSelectorGroup[*]/#/ASSOCIATED:::} )
 		CurrentPath="${CurrentPath}/EndpointGroups/${Target_ASSOCIATION[2]%%=>*}"
 	elif [[ ${Target_ASSOCIATION[1]} == "APPWAN" ]]; then
-		AttentionMessage "INFO" "Fetching all Endpoints associated to ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\" in Network \"${Target_NETWORK[1]}\"."
+		AttentionMessage "GENERALINFO" "Fetching all Endpoints associated to ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\" in Network \"${Target_NETWORK[1]}\"."
 		GetObjects "ENDPOINTS" "appWans/${Target_ASSOCIATION[2]##*=>}/endpoints" &>/dev/null
-		AttentionMessage "INFO" "Fetching all EndpointGroups associated to ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\" in Network \"${Target_NETWORK[1]}\"."
+		AttentionMessage "GENERALINFO" "Fetching all EndpointGroups associated to ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\" in Network \"${Target_NETWORK[1]}\"."
 		GetObjects "ENDPOINTGROUPS" "appWans/${Target_ASSOCIATION[2]##*=>}/endpointGroups" &>/dev/null
 		EndpointSelectorGroup=( ${AllEndpoints[*]/???:::/} ${AllEndpointGroups[*]/#/GROUP:::} )
 		EndpointSelectorToggle=( ${EndpointSelectorGroup[*]/#/ASSOCIATED:::} )
@@ -3720,13 +3731,13 @@ function ModifyEndpointAssociations() {
 					&& sleep 3 \
 					&& continue
 			[[ ${#AllEndpointGroupsAddition[*]} -gt 0 ]] \
-				&& AttentionMessage "INFO" "The following EndpointGroups will be added to ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\" in Network \"${Target_NETWORK[1]}\"." \
+				&& AttentionMessage "GREENINFO" "The following EndpointGroups will be added to ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\" in Network \"${Target_NETWORK[1]}\"." \
 				&& echo "${AllEndpointGroupsAddition[*]}"
 			[[ ${#AllEndpointGroupsDeletion[*]} -gt 0 ]] \
 				&& AttentionMessage "REDINFO" "The following EndpointGroups will be deleted from ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\" in Network \"${Target_NETWORK[1]}\"." \
 				&& echo "${AllEndpointGroupsDeletion[*]}"
 			[[ ${#AllEndpointsAddition[*]} -gt 0 ]] \
-				&& AttentionMessage "INFO" "The following Endpoints will be added to ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\" in Network \"${Target_NETWORK[1]}\"." \
+				&& AttentionMessage "GREENINFO" "The following Endpoints will be added to ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\" in Network \"${Target_NETWORK[1]}\"." \
 				&& echo "${AllEndpointsAddition[*]}"
 			[[ ${#AllEndpointsDeletion[*]} -gt 0 ]] \
 				&& AttentionMessage "REDINFO" "The following Endpoints will be deleted from ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\" in Network \"${Target_NETWORK[1]}\"." \
@@ -3736,28 +3747,28 @@ function ModifyEndpointAssociations() {
 			GetYorN "Ready?" "No"
 			if [[ $? -eq 0 ]]; then
 				if [[ ${#AllEndpointGroupsAddition[*]} -gt 0 ]]; then
-					AttentionMessage "INFO" "Adding selected EndpointGroups to ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\"."
+					AttentionMessage "GREENINFO" "Adding selected EndpointGroups to ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\"."
 					SetObjects "ADDENDPOINTGROUPTO${Target_ASSOCIATION[1]}" "${AllEndpointGroupsAddition[*]}" "${Target_ASSOCIATION[2]}" \
 						&& AttentionMessage "VALIDATED" "Request to add EndpointGroup(s) is complete. Actual changes may still be underway." \
 						|| (AttentionMessage "ERROR" "FAILED! Request to add EndpointGroup(s) did not complete.  See message below." \
 							&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}")
 				fi
 				if [[ ${#AllEndpointGroupsDeletion[*]} -gt 0 ]]; then
-					AttentionMessage "INFO" "Deleting selected EndpointGroups from ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\"."
+					AttentionMessage "GREENINFO" "Deleting selected EndpointGroups from ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\"."
 					SetObjects "DELENDPOINTGROUPFROM${Target_ASSOCIATION[1]}" "${AllEndpointGroupsDeletion[*]}" "${Target_ASSOCIATION[2]}" \
 					&& AttentionMessage "VALIDATED" "Request to delete EndpointGroup(s) is complete. Actual changes may still be underway." \
 						|| (AttentionMessage "ERROR" "FAILED! Request to delete EndpointGroup(s) did not complete.  See message below." \
 							&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}")
 				fi
 				if [[ ${#AllEndpointsAddition[*]} -gt 0 ]]; then
-					AttentionMessage "INFO" "Adding selected Endpoints to ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\"."
+					AttentionMessage "GREENINFO" "Adding selected Endpoints to ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\"."
 					SetObjects "ADDENDPOINTTO${Target_ASSOCIATION[1]}" "${AllEndpointsAddition[*]}" "${Target_ASSOCIATION[2]}" \
 						&& AttentionMessage "VALIDATED" "Request to add Endpoint(s) is complete. Actual changes may still be underway." \
 						|| (AttentionMessage "ERROR" "FAILED! Request to add Endpoint(s) did not complete.  See message below." \
 							&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}")
 				fi
 				if [[ ${#AllEndpointsDeletion[*]} -gt 0 ]]; then
-					AttentionMessage "INFO" "Deleting selected Endpoints from ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\"."
+					AttentionMessage "GREENINFO" "Deleting selected Endpoints from ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\"."
 					SetObjects "DELENDPOINTFROM${Target_ASSOCIATION[1]}" "${AllEndpointsDeletion[*]}" "${Target_ASSOCIATION[2]}" \
 					&& AttentionMessage "VALIDATED" "Request to delete Endpoint(s) is complete. Actual changes may still be underway." \
 						|| (AttentionMessage "ERROR" "FAILED! Request to delete Endpoint(s) did not complete.  See message below." \
@@ -3881,7 +3892,7 @@ function DeleteEndpoints() {
 
 		# Ask the user which Gateway.
 		FilterString='.'
-		AttentionMessage "INFO" "Fetching all Endpoints in Network \"${Target_NETWORK[1]}\"."
+		AttentionMessage "GENERALINFO" "Fetching all Endpoints in Network \"${Target_NETWORK[1]}\"."
 		GetObjects "ENDPOINTS" &>/dev/null
 		AllEndpoints=( ${AllEndpoints[*]/???:::/} )
 		# The user needs to select an Endpoint within the Network to target.
@@ -3891,7 +3902,7 @@ function DeleteEndpoints() {
 		Target_ENDPOINT[0]="${UserResponse%%=>*}" # TYPE:::NAME
 		Target_ENDPOINT[1]="${UserResponse##*=>}" # UUID
 
-		AttentionMessage "INFO" "Validating if Endpoint \"${Target_ENDPOINT[0]}\" is allowed deletion in Network \"${Target_NETWORK[1]}\".  Just a moment..."
+		AttentionMessage "GENERALINFO" "Validating if Endpoint \"${Target_ENDPOINT[0]}\" is allowed deletion in Network \"${Target_NETWORK[1]}\".  Just a moment..."
 		FilterString='*=>'"${Target_ENDPOINT[1]}"'' # Hard filter for this UUID.
 		GetObjects "SERVICES" "endpoints/${Target_ENDPOINT[1]}/services" &>/dev/null
 		if [[ $? -eq 0 ]]; then
@@ -3909,7 +3920,7 @@ function DeleteEndpoints() {
 
 		SetObjects "DELENDPOINT" "${Target_ENDPOINT[1]}"
 		if [[ $? -eq 0 ]]; then
-			AttentionMessage "VALIDATED" "Endpoint \"${Target_ENDPOINT[0]}\" has been deleted."
+			AttentionMessage "GREENINFO" "Endpoint \"${Target_ENDPOINT[0]}\" has been deleted."
 			return 0
 		else
 			AttentionMessage "ERROR" "Endpoint deletion failed.  Endpoint remains available."
@@ -3932,7 +3943,7 @@ function BulkCreateEndpoints() {
 		if [[ ${Target_EMAIL[0]} != "NOEMAIL" ]]; then
 
 			# Alerting.
-			AttentionMessage "INFO" "  ┣━Now attempting Email alert to \"${Target_EMAIL[0]}\"."
+			AttentionMessage "GREENINFO" "  ┣━Now attempting Email alert to \"${Target_EMAIL[0]}\"."
 
 			if [[ ${Target_EMAIL[0]} =~ "@" ]]; then
 
@@ -3946,7 +3957,7 @@ function BulkCreateEndpoints() {
 				else
 
 					let OutputCounter[4]++
-					AttentionMessage "VALIDATED" "  ┗━Email alert transmission succeeded."
+					AttentionMessage "GREENINFO" "  ┗━Email alert transmission succeeded."
 					echo "${Target_CONTEXT},${StoredAttributes[0]:-UUID_NA},${StoredAttributes[1]:-REGKEY\:NA},SENT:${Target_EMAIL[0]}" >> ${OutputFile}
 
 				fi
@@ -3961,7 +3972,7 @@ function BulkCreateEndpoints() {
 
 		else
 
-			AttentionMessage "INFO" "  ┗━Email alert not required."
+			AttentionMessage "GREENINFO" "  ┗━Email alert not required."
 			echo "${Target_CONTEXT},${StoredAttributes[0]:-UUID_NA},${StoredAttributes[1]:-REGKEY\:NA},NOEMAIL" >> ${OutputFile}
 
 		fi
@@ -3979,7 +3990,7 @@ function BulkCreateEndpoints() {
 
 		elif [[ ${1} == "PARSE" ]]; then
 
-			# Deconstruct the line.
+			# Deconstruction of the line.
 			IFS=',' # Lists are comma delimited arrays.
 			let OutputCounter[0]++ # Count for every line.
 			EachLine=( ${InputLine} ) # Insert into array.
@@ -4035,27 +4046,27 @@ function BulkCreateEndpoints() {
 			if [[ ${Target_ENDPOINTNAME} == "MISSINGNAME" ]] || [[ ${Target_ENDPOINTTYPE} == "MISSINGTYPE" ]] || [[ ${Target_NETWORK} == "MISSINGNETWORK" ]] || [[ ${Target_GEOREGION} == "MISSINGGEOREGION" ]]; then
 				AttentionMessage "ERROR" "The following line is missing required context. Ignoring line."
 				let OutputCounter[3]++ # Increment the failure counter.
-				let OutputCounter[1]-- # Decriment the valid counter.
+				let OutputCounter[1]-- # Decrement the valid counter.
 			elif [[ ${#Target_ENDPOINTNAME} -lt 5 ]] || [[ ${#Target_ENDPOINTNAME} -gt 64 ]] || [[ ! ${Target_ENDPOINTNAME} =~ ^[[:alnum:]].*[[:alnum:]]$ ]]; then
 				AttentionMessage "ERROR" "The following line contains a name that does not meet naming criteria. Name must be >=5 chars, <=64 chars, and only alphanumeric. Ignoring line."
 				let OutputCounter[3]++ # Increment the failure counter.
-				let OutputCounter[1]-- # Decriment the valid counter.
+				let OutputCounter[1]-- # Decrement the valid counter.
 			elif [[ ${#Target_NETWORK} -ne 36 ]] || [[ ${#Target_GEOREGION} -ne 36 ]]; then
 				AttentionMessage "ERROR" "The following line contains a Network UUID or GeoRegion UUID that is not 36 chars. Ignoring line."
 				let OutputCounter[3]++ # Increment the failure counter.
-				let OutputCounter[1]-- # Decriment the valid counter.
+				let OutputCounter[1]-- # Decrement the valid counter.
 			elif [[ ${AllEndpointGroups} != "NOENDPOINTGROUPS" ]] && [[ ${#AllEndpointGroups} -lt 36 ]]; then
 				[[ ${AllEndpointGroups} =~ "@" ]] \
 					&& AttentionMessage "ERROR" "The following line contains EndpointGroup UUID(s) which have an email address instead of a UUID. Ignoring line." \
 					|| AttentionMessage "ERROR" "The following line contains EndpointGroup UUID(s) that are in error. Ignoring line."
 				let OutputCounter[3]++ # Increment the failure counter.
-				let OutputCounter[1]-- # Decriment the valid counter.
+				let OutputCounter[1]-- # Decrement the valid counter.
 			elif [[ ${AllAppWANs} != "NOAPPWANS" ]] && [[ ${#AllAppWANs} -lt 36 ]]; then
 				[[ ${AllAppWANs} =~ "@" ]] \
 					&& AttentionMessage "ERROR" "The following line contains AppWAN UUID(s) which have an email address instead of a UUID. Ignoring line." \
 					|| AttentionMessage "ERROR" "The following line contains AppWAN UUID(s) that are in error. Ignoring line."
 				let OutputCounter[3]++ # Increment the failure counter.
-				let OutputCounter[1]-- # Decriment the valid counter.
+				let OutputCounter[1]-- # Decrement the valid counter.
 			fi
 			IFS=$'\n' # Reset field separator.
 
@@ -4098,7 +4109,7 @@ function BulkCreateEndpoints() {
 		&& return 1
 
 	# Check point.
-	AttentionMessage "INFO" "Found ${OutputCounterComplete[1]}/${OutputCounterComplete[0]} lines in the import file for processing."
+	AttentionMessage "GREENINFO" "Found ${OutputCounterComplete[1]}/${OutputCounterComplete[0]} lines in the import file for processing."
 	! GetYorN "Ready?" "Yes" "20" \
 		&& return 1
 
@@ -4119,7 +4130,7 @@ function BulkCreateEndpoints() {
 			|| continue
 
 		# Run creation.
-		AttentionMessage "INFO" "[${OutputCounter[1]}/${OutputCounterComplete[1]}] Creating new Endpoint \"${Target_ENDPOINTNAME}\"."
+		AttentionMessage "GREENINFO" "[${OutputCounter[1]}/${OutputCounterComplete[1]}] Creating new Endpoint \"${Target_ENDPOINTNAME}\"."
 		# This Endpoint was newly created.
 		if SetObjects "CREATEENDPOINT" "${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "${Target_GEOREGION}"; then
 
@@ -4132,15 +4143,15 @@ function BulkCreateEndpoints() {
 				StoredAttributes=( "${SetObjectReturn##*=>}" "REGKEY:REDACTED" ) # 0/ENDPOINT_UUID 1/REGISTRATION_KEY.
 			fi
 
-			AttentionMessage "INFO" "  ┣━Endpoint \"${Target_ENDPOINTNAME}\" creation succeeded."
+			AttentionMessage "GREENINFO" "  ┣━Endpoint \"${Target_ENDPOINTNAME}\" creation succeeded."
 			BulkExportVar="${BulkExportVar}${NewLine}${InputLine}"
 
 			# Attempt to add to an AppWAN before conclusion?
 			if [[ ${AllEndpointGroups} != "NOENDPOINTGROUPS" ]]; then
 				for ((i=0;i<${#AllEndpointGroups[*]};i++)); do
-					AttentionMessage "INFO" "  ┣━Request to add Endpoint to EndpointGroup \"${AllEndpointGroups[${i}]}\" started."
+					AttentionMessage "GREENINFO" "  ┣━Request to add Endpoint to EndpointGroup \"${AllEndpointGroups[${i}]}\" started."
 					if SetObjects "ADDENDPOINTTOENDPOINTGROUP" "${StoredAttributes[0]}" "${AllEndpointGroups[${i}]}" &>/dev/null; then
-						AttentionMessage "VALIDATED" "  ┣━Request to add Endpoint to EndpointGroup is complete."
+						AttentionMessage "GREENINFO" "  ┣━Request to add Endpoint to EndpointGroup is complete."
 						let OutputCounter[6]++ # Increment the pass counter.
 						EndpointGroupState[${i}]="ADDEPG_OK:${AllEndpointGroups[${i}]}"
 					else
@@ -4156,9 +4167,9 @@ function BulkCreateEndpoints() {
 			# Attempt to add to an AppWAN before conclusion?
 			if [[ ${AllAppWANs} != "NOAPPWANS" ]]; then
 				for ((i=0;i<${#AllAppWANs[*]};i++)); do
-					AttentionMessage "INFO" "  ┣━Request to add \"${Target_ENDPOINTNAME}\" to AppWAN \"${AllAppWANs[${i}]}\" started."
+					AttentionMessage "GREENINFO" "  ┣━Request to add \"${Target_ENDPOINTNAME}\" to AppWAN \"${AllAppWANs[${i}]}\" started."
 					if SetObjects "ADDENDPOINTTOAPPWAN" "${StoredAttributes[0]}" "${AllAppWANs[${i}]}" &>/dev/null; then
-						AttentionMessage "VALIDATED" "  ┣━Request to add \"${Target_ENDPOINTNAME}\" to AppWAN(s) is complete."
+						AttentionMessage "GREENINFO" "  ┣━Request to add \"${Target_ENDPOINTNAME}\" to AppWAN(s) is complete."
 						let OutputCounter[8]++ # Increment the pass counter.
 						AppWANState[${i}]="ADDAPW_OK:${AllAppWANs[${i}]}"
 					else
@@ -4205,7 +4216,7 @@ function BulkCreateEndpoints() {
 					# Attempt to add to an AppWAN before conclusion?
 					if [[ ${AllEndpointGroups} != "NOENDPOINTGROUPS" ]]; then
 						for ((i=0;i<${#AllEndpointGroups[*]};i++)); do
-							AttentionMessage "INFO" "  ┣━Request to add Endpoint to EndpointGroup \"${AllEndpointGroups[${i}]}\" started."
+							AttentionMessage "GREENINFO" "  ┣━Request to add Endpoint to EndpointGroup \"${AllEndpointGroups[${i}]}\" started."
 							if SetObjects "ADDENDPOINTTOENDPOINTGROUP" "${StoredAttributes[0]}" "${AllEndpointGroups[${i}]}" &>/dev/null; then
 								AttentionMessage "VALIDATED" "  ┣━Request to add Endpoint to EndpointGroup is complete."
 								let OutputCounter[6]++ # Increment the pass counter.
@@ -4223,7 +4234,7 @@ function BulkCreateEndpoints() {
 					# Attempt to add to an AppWAN before conclusion?
 					if [[ ${AllAppWANs} != "NOAPPWANS" ]]; then
 						for ((i=0;i<${#AllAppWANs[*]};i++)); do
-							AttentionMessage "INFO" "  ┣━Request to add Endpoint to AppWAN \"${AllAppWANs[${i}]}\" started."
+							AttentionMessage "GREENINFO" "  ┣━Request to add Endpoint to AppWAN \"${AllAppWANs[${i}]}\" started."
 							if SetObjects "ADDENDPOINTTOAPPWAN" "${StoredAttributes[0]}" "${AllAppWANs[${i}]}" &>/dev/null; then
 								AttentionMessage "VALIDATED" "  ┣━Request to add Endpoint to AppWAN is complete."
 								let OutputCounter[8]++ # Increment the pass counter.
@@ -4255,7 +4266,7 @@ function BulkCreateEndpoints() {
 	done
 
 	# Analysis.
-	AttentionMessage "INFO" "Bulk Endpoint Creation Statistics."
+	AttentionMessage "GREENINFO" "Bulk Endpoint Creation Statistics."
 		echo "TOTAL LINES:       ${OutputCounterComplete[0]}"
 		echo "LINES COUNTED:     ${OutputCounterComplete[1]}"
 	if [[ $((${OutputCounter[1]})) -ge 1 ]]; then
@@ -4276,9 +4287,9 @@ function BulkCreateEndpoints() {
 	fi
 
 	# Update the import file and reveal the output file.
-	AttentionMessage "INFO" "Output results stored in file \"${OutputFile}\"."
+	AttentionMessage "GENERALINFO" "Output results stored in file \"${OutputFile}\"."
 	echo "${BulkExportVar}" > ${BulkImportFile} \
-		&& AttentionMessage "INFO" "Updated the import file \"${BulkImportFile}\"." \
+		&& AttentionMessage "GENERALINFO" "Updated the import file \"${BulkImportFile}\"." \
 		|| AttentionMessage "ERROR" "Could not update the import file \"${BulkImportFile}\"."
 
 	# Only complete 100% pass rate is considered success in the end.
@@ -4299,8 +4310,8 @@ function CreateEndpoints() {
 		"NetFoundry Azure Gateway=>AZVCPEGW"
 		"NetFoundry Azure Stack Gateway=>AZSGW"
 		"NetFoundry GCP Google Gateway=>GCPCPEGW"
-		"NetFoundry Hosted ZITI Brige=>ZTGW"
-		"NetFoundry Private ZITI Brige=>ZTHGW"
+		"NetFoundry Hosted ZITI Bridge=>ZTGW"
+		"NetFoundry Private ZITI Bridge=>ZTHGW"
 		"NetFoundry Generic Premise Gateway=>VCPEGW"
 	)
 	local AddTo=( \
@@ -4404,7 +4415,7 @@ function CreateEndpoints() {
 							|| break 4
 
 						# Create the new Endpoint.
-						AttentionMessage "INFO" "Creating new Endpoint \"${Target_ENDPOINTNAME}\"."
+						AttentionMessage "GREENINFO" "Creating new Endpoint \"${Target_ENDPOINTNAME}\"."
 						SetObjects "CREATEENDPOINT" "${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "${Target_GEOREGION##*=>}"
 
 						if [[ $? -eq 0 ]]; then
@@ -4415,7 +4426,7 @@ function CreateEndpoints() {
 							AttentionMessage "VALIDATED" "ENDPOINT_NAME=\"${Target_ENDPOINTNAME}\", ENDPOINT_TYPE=\"${Target_ENDPOINTTYPE}\", ENDPOINT_UUID=\"${Target_ENDPOINTUUID}\", REGISTRATIONKEY=\"${Target_ENDPOINTKEY}\"."
 
 							if [[ ! -z ${Target_ASSOCIATION} ]]; then
-								AttentionMessage "INFO" "Adding \"${Target_ENDPOINTNAME}\" to ${Target_ASSOCIATION[0]} \"${Target_ASSOCIATION[1]%%=>*}\"."
+								AttentionMessage "GREENINFO" "Adding \"${Target_ENDPOINTNAME}\" to ${Target_ASSOCIATION[0]} \"${Target_ASSOCIATION[1]%%=>*}\"."
 								! SetObjects "ADDENDPOINTTO${Target_ASSOCIATION[0]}" "${SetObjectReturn##*=>}" "${Target_ASSOCIATION[1]##*=>}" \
 									&& AttentionMessage "ERROR" "Endpoint association failed.  Endpoint remains available." \
 									&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}" \
@@ -4423,7 +4434,7 @@ function CreateEndpoints() {
 							fi
 
 							if [[ ! -z ${Target_EMAIL[0]} ]]; then
-								AttentionMessage "INFO" "Sending alert to \"${Target_EMAIL[0]}\" with information about new Endpoint \"${Target_ENDPOINTNAME}\"."
+								AttentionMessage "GREENINFO" "Sending alert to \"${Target_EMAIL[0]}\" with information about new Endpoint \"${Target_ENDPOINTNAME}\"."
 								! SetObjects "EMAILALERT" "${Target_ENDPOINTUUID}" "${Target_EMAIL[0]}" "${Target_EMAIL[1]}" \
 									&& AttentionMessage "ERROR" "Email alert transmission failed.  Endpoint remains available." \
 									&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}" \
@@ -4455,7 +4466,7 @@ function DestroyBearerToken() {
 		AttentionMessage "YELLOWINFO" "Bearer Token did not exist, and thus was not destroyed."
 		return 0
 	elif ProcessResponse "${POSTSyntax} ${DATASyntax}" "${APIIDENTITYURL}/logout" "200"; then
-		AttentionMessage "INFO" "Bearer Token was destroyed successfully."
+		AttentionMessage "GENERALINFO" "Bearer Token was destroyed successfully."
 		return 0
 	else
 		AttentionMessage "REDINFO" "Bearer Token could not be destroyed and potentially continues to exist."
@@ -4471,7 +4482,7 @@ function CheckBearerToken() {
 	# Bearer Token does not exist, check for other required global variables.
 	if [[ -z ${NFN_BEARER} ]] && [[ ! -z ${ThisClientID} ]] && [[ ! -z ${ThisClientSecret} ]]; then
 
-		AttentionMessage "VALIDATED" "API User \"client_id (ThisClientID)\" and API Secret \"client_secret (ThisClientSecret)\" present."
+		AttentionMessage "GENERALINFO" "API User \"client_id (ThisClientID)\" and API Secret \"client_secret (ThisClientSecret)\" present."
 
 		# Obtained required global variables to retrieve the Bearer Token.
 		NFN_BEARER=$( \
@@ -4486,7 +4497,7 @@ function CheckBearerToken() {
 
 		# Check for populated variables.
 		if [[ ${#NFN_BEARER} -gt 200 ]]; then
-			AttentionMessage "VALIDATED" "API Bearer Token received from \"${APIConsole}\"."
+			AttentionMessage "GENERALINFO" "API Bearer Token received from \"${APIConsole}\"."
 			GETSyntax="curl -sSim ${CURLMaxTime} -X GET -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Authorization: Bearer ${NFN_BEARER}\""
 			PUTSyntax="curl -sSim ${CURLMaxTime} -X PUT -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Authorization: Bearer ${NFN_BEARER}\""
 			POSTSyntax="curl -sSim ${CURLMaxTime} -X POST -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Authorization: Bearer ${NFN_BEARER}\""
@@ -4506,17 +4517,17 @@ function CheckBearerToken() {
 	if [[ ${#NFN_BEARER} -gt 200 ]]; then
 
 		# Store global variables.
-		AttentionMessage "INFO" "Fetching available Organizations."
+		AttentionMessage "GENERALINFO" "Fetching available Organizations."
 		GetObjects "ORGANIZATIONS" 2>/dev/null
 		if [[ ${#AllOrganizations} -gt 0 ]]; then
-			AttentionMessage "INFO" "Fetching available Networks."
+			AttentionMessage "GENERALINFO" "Fetching available Networks."
 			GetObjects "NETWORKS" 2>/dev/null
 		else
 			GoToExit "3" "Organization lookup failed or there were no Organizations available.  Please check and try again."
 		fi
 
-		AttentionMessage "VALIDATED" "API successfully interacted using the Bearer Token from \"${APIConsole}\"."
-		AttentionMessage "INFO" "Scrambling and releasing the ClientID and ClientSecret."
+		AttentionMessage "GENERALINFO" "API successfully interacted using the Bearer Token from \"${APIConsole}\"."
+		AttentionMessage "GENERALINFO" "Scrambling and releasing the ClientID and ClientSecret."
 		ThisClientID="${RANDOM}${RANDOM}"
 		ThisClientSecret="${RANDOM}${RANDOM}"
 		unset ThisClientID ThisClientSecret
@@ -4596,12 +4607,12 @@ function ObtainSAFE() {
 		# 1/SAFEFILE
 		local SAFEFile="${1}"
 		# Write into the elevated permission file.
-		AttentionMessage "INFO" "Saving information to the SAFE."
+		AttentionMessage "GREENINFO" "Saving information to the SAFE."
 		sleep 3
 		sudo -s bash -c "mkdir -p ${SAFEDir}" &>/dev/null \
 			&& sudo -s bash -c "export GPG_TTY=\$(tty) && echo -e \"ThisClientID=${ThisClientID}\nThisClientSecret=${ThisClientSecret}\" | gpg -q --yes -c -o ${SAFEFile} 2>/dev/null" \
 			&& sudo -s bash -c "chmod -R 700 ${SAFEDir}" &>/dev/null \
-			&& (AttentionMessage "INFO" "Successfully created the API SAFE named \"${SAFEFile##*\/}\"." \
+			&& (AttentionMessage "GREENINFO" "Successfully created the API SAFE named \"${SAFEFile##*\/}\"." \
 				&& return 0) \
 			|| (AttentionMessage "REDINFO" "Failed to create the API SAFE named \"${SAFEFile##*\/}\"." \
 				&& return 1)
@@ -4643,7 +4654,7 @@ function ObtainSAFE() {
 		! GetYorN "Proceed?" "No" \
 			&& return 0
 		sudo -s bash -c "rm -f ${SAFEFile} &>/dev/null" \
-			&& (AttentionMessage "INFO" "Successfully deleted SAFE named \"${SAFEFile##*\/}\"." \
+			&& (AttentionMessage "VALIDATED" "Successfully deleted SAFE named \"${SAFEFile##*\/}\"." \
 				&& return 0) \
 			|| (AttentionMessage "ERROR" "Failed to delete SAFE named \"${SAFEFile##*\/}\"." \
 				&& return 1)
@@ -4670,14 +4681,14 @@ function ObtainSAFE() {
 			CurrentPath="/APISAFE/MAINSelection"
 			unset SAFEFile SAFEName ThisClientID ThisClientSecret
 
-			AttentionMessage "INFO" "Looking up available SAFEs."
+			AttentionMessage "GREENINFO" "Looking up available SAFEs."
 			AllSAFEs=( $(sudo -s bash -c "find ${SAFEDir}/*.${SAFEPostExt}.${SAFEEncryption} -maxdepth 1 -type f -exec basename {} \; 2>/dev/null") )
 			GetSelection "What would you like to do?" "${AllSAFEOptions[*]}" "NONE"
 
 			case "${UserResponse}" in
 
 				"List SAFEs")
-					AttentionMessage "INFO" "The following SAFEs are encrypted and stored as an elevated user in this system."
+					AttentionMessage "GREENINFO" "The following SAFEs are encrypted and stored as an elevated user in this system."
 					sudo -s bash -c "ls -ltr ${SAFEDir}/*.${SAFEPostExt}.${SAFEEncryption} 2>/dev/null"
 				;;
 
@@ -4770,9 +4781,10 @@ function GeneralHelp() {
 	echo "${MyName} -p       ::: Limit Text Decoration."
 	echo "${MyName} -T       ::: Include Teaching Information."
 	echo "${MyName} -I       ::: Interactive Mode. [DEFAULT]"
-	echo "${MyName} -B [FILE]::: Bulk Endpoint Creation Mode."
+	echo "${MyName} -B [FILE]::: Bulk Endpoint Creation Mode. Applies [-L]."
 	echo "${MyName} -b       ::: Bulk Endpoint Creation Sub-Usage and Help Menu."
 	echo "${MyName} -D       ::: Enable Debug Messages."
+	echo "${MyName} -q       ::: Quieter Printing Mode."
 	echo "${MyName} -C [????]::: Point API Access towards [production/staging]. [default=production]"
 	echo
 }
@@ -4783,7 +4795,7 @@ function AutoInstallPackages() {
 	function ExecuteInstall() {
 		# 1/PKGMGRPROG
 		local MyPkgMgr="${1}"
-		AttentionMessage "INFO" "Reviewing, installing, and updating programs on your system with \"${MyPkgMgr}\" Package Manager."
+		AttentionMessage "GREENINFO" "Reviewing, installing, and updating programs on your system with \"${MyPkgMgr}\" Package Manager."
 		case "${MyPkgMgr}" in
 			"brew")
 				${MyPkgMgr} update
@@ -4850,8 +4862,8 @@ function AutoInstallPackages() {
 				&& ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)" \
 				&& CheckObject "PROG" "${MyPkgMgr#*:::}" \
 				&& ExecuteInstall "${MyPkgMgr#*:::}"
-				AttentionMessage "INFO" "Auto installation of required packages reported code \"$?\"."
-			AttentionMessage "INFO" "Run \"${MyName}\" again without options to check validity of installed programs."
+				AttentionMessage "GENERALINFO" "Auto installation of required packages reported code \"$?\"."
+			AttentionMessage "GENERALINFO" "Run \"${MyName}\" again without options to check validity of installed programs."
 			GoToExit "7"
 		;;
 
@@ -4860,9 +4872,9 @@ function AutoInstallPackages() {
 		;;
 
 		"INSTALLED:::"*)
-			AttentionMessage "INFO" "Ascertained the local Package Manager is \"${MyPkgMgr#*:::}\"."
+			AttentionMessage "GENERALINFO" "Ascertained the local Package Manager is \"${MyPkgMgr#*:::}\"."
 			ExecuteInstall "${MyPkgMgr#*:::}"
-			AttentionMessage "INFO" "Auto installation of required packages reported code \"$?\"."
+			AttentionMessage "GENERALINFO" "Auto installation of required packages reported code \"$?\"."
 			GoToExit "7"
 		;;
 
@@ -4927,7 +4939,7 @@ function CheckingChain() {
 			&& AttentionMessage "ERROR" "Elevation is required to obtain keys from your stored SAFE - Try again." \
 			|| break
 	done
-	AttentionMessage "VALIDATED" "Elevation was granted."
+	AttentionMessage "GENERALINFO" "Elevation was granted."
 }
 
 #################################################################################
@@ -4948,7 +4960,7 @@ function InteractiveLoop() {
 #######################################################################################
 function LaunchMAIN() {
 	IFS=$'\n' # Field Separation locked only to newline for the entire program.
-	#export LC_ALL="en_US.UTF-8" # Ensure charactors can actually be printed by setting the appropriate locale.
+	#export LC_ALL="en_US.UTF-8" # Ensure characters can actually be printed by setting the appropriate locale.
 	SetLimitFancy "FALSE"
 
 	# Begin checking.
@@ -4966,22 +4978,22 @@ function LaunchMAIN() {
 	! CheckObject "PROG" "sudo" \
 		&& GoToExit "3" "SUDO is a REQUIRED yet NOT INSTALLED super user elevation program."
 	CheckObject "ENV-v" "Microsoft" \
-		&& AttentionMessage "INFO" "Detected Microsoft Windows Subsystem for Linux (WSL), limiting text decoration." \
+		&& AttentionMessage "GREENINFO" "Detected Microsoft Windows Subsystem for Linux (WSL), limiting text decoration." \
 		&& SetLimitFancy "WSL"
 
 	# Get options from command line.
-	while getopts "HhXSs:PpTIB:bDC:" ThisOpt 2>/dev/null; do
+	while getopts "HhXSs:PpTIB:bDqC:" ThisOpt 2>/dev/null; do
 		case ${ThisOpt} in
 			"H"|"h")
 				SetLimitFancy "TRUE"
 				FancyPrint "PLAINLOGO"
-				AttentionMessage "INFO" "\"${MyName}\" - NetFoundry Custom API Interface Utility - Usage and Help."
+				AttentionMessage "GREENINFO" "\"${MyName}\" - NetFoundry Custom API Interface Utility - Usage and Help."
 				GeneralHelp
 				GoToExit "5"
 			;;
 			"X")
 				SetLimitFancy "TRUE"
-				AttentionMessage "INFO" "\"${MyName}\" - NetFoundry Custom API Interface Utility - Package Installation Mode."
+				AttentionMessage "GREENINFO" "\"${MyName}\" - NetFoundry Custom API Interface Utility - Package Installation Mode (PID:\"${ParentPID:-ERROR}\")."
 				AutoInstallPackages
 				GoToExit "3" "An unspecified error occurred." # Should exit before this.
 			;;
@@ -5005,8 +5017,8 @@ function LaunchMAIN() {
 			;;
 			"B")
 				SetLimitFancy "TRUE"
-				FancyPrint "PLAINLOGO"
-				AttentionMessage "INFO" "\"${MyName}\" - NetFoundry Custom API Interface Utility - Bulk Endpoint Creation Mode."
+				QuietPrint="TRUE"
+				AttentionMessage "GREENINFO" "\"${MyName}\" - NetFoundry Custom API Interface Utility - Bulk Endpoint Creation Mode (PID:\"${ParentPID:-ERROR}\")."
 				BulkImportFile="${OPTARG}"
 				if [[ -e ${BulkImportFile:-NOTSET} ]]; then
 					ThisMode="BULKCREATEENDPOINTS"
@@ -5016,37 +5028,41 @@ function LaunchMAIN() {
 			;;
 			"b")
 				FancyPrint "PLAINLOGO"
-				AttentionMessage "INFO" "\"${MyName}\" - NetFoundry Custom API Interface Utility - Bulk Endpoint Creation Usage and Help."
+				AttentionMessage "GREENINFO" "\"${MyName}\" - NetFoundry Custom API Interface Utility - Bulk Endpoint Creation Usage and Help."
 				BulkCreateHelp
 				GoToExit "7"
 			;;
 			"D")
 				DebugInfo="TRUE"
 			;;
+			"q")
+				QuietPrint="TRUE"
+			;;
 			"C")
 				APIConsole="${OPTARG}"
 			;;
 			*)
 				AttentionMessage "ERROR" "Invalid Options."
-				AttentionMessage "INFO" "\"${MyName}\" - NetFoundry Custom API Interface Utility - Usage and Help."
+				AttentionMessage "GREENINFO" "\"${MyName}\" - NetFoundry Custom API Interface Utility - Usage and Help."
 				GeneralHelp
 				GoToExit "5" "Invalid input options."
 			;;
 		esac
 	done
 
-	TrackLastTouch "INITIATE" & # Kick off the idle tracker.
 	SetupConsoleAccess "${APIConsole}" # Setup variables for the appropriate Console.
 
 	# General usage of the program.
 	if [[ ${ThisMode} == "INTERACTIVE" ]]; then
+		TrackLastTouch "INITIATE" & # Kick off the idle tracker.
 		FancyPrint "ENTERLOGO"
-		AttentionMessage "INFO" "\"${MyName}\" - NetFoundry Custom API Interface Utility - Interactive Mode."
+		AttentionMessage "GREENINFO" "\"${MyName}\" - NetFoundry Custom API Interface Utility - Interactive Mode (PID:\"${ParentPID:-ERROR}\")."
 	fi
 
 	# Current warranty and licensing statements.
-	AttentionMessage "WARNING" "${MyWarranty}"
-	AttentionMessage "WARNING" "${MyLicense}"
+	AttentionMessage "GENERALINFO" "${MyWarranty}"
+	AttentionMessage "GENERALINFO" "${MyLicense}"
+	AttentionMessage "GENERALINFO" "Please See: ${MyGitHubURL}"
 
 	# Checking Chain - Primary Critical - Expected to be part of the launching BASH program and Distro.
 	CheckingChain
@@ -5185,20 +5201,20 @@ function LaunchMAIN() {
 									"EndpointGroups")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Endpoints and associated EndpointGroups in Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Endpoints and associated EndpointGroups in Network \"${Target_NETWORK[1]}\"."
 										GetObjects "ENDPOINTS" "FOLLOW-ENDPOINTGROUPS"
 									;;
 									"AppWANs")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Endpoints and associated AppWANs in Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Endpoints and associated AppWANs in Network \"${Target_NETWORK[1]}\"."
 										GetObjects "ENDPOINTS" "FOLLOW-APPWANS"
 									;;
 									"Services (Provided)")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "Be aware, only Gateway Endpoints provide Services."
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Gateway Endpoints and associated Services (Provided) in Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "Be aware, only Gateway Endpoints provide Services."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Gateway Endpoints and associated Services (Provided) in Network \"${Target_NETWORK[1]}\"."
 										GetObjects "ENDPOINTS" "FOLLOW-PSERVICES"
 									;;
 									"Services (Accessed)")
@@ -5207,7 +5223,7 @@ function LaunchMAIN() {
 											GetYorN "SPECIAL-PAUSE"
 											! GetFilterString \
 												&& continue
-											AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Endpoints and associated Services (Accessed) in Network \"${Target_NETWORK[1]}\"."
+											AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Endpoints and associated Services (Accessed) in Network \"${Target_NETWORK[1]}\"."
 											GetObjects "ENDPOINTS" "FOLLOW-ASERVICES"
 										else
 											AttentionMessage "REDINFO" "This function is not complete yet. Turn debug ON to permit next steps."
@@ -5217,19 +5233,19 @@ function LaunchMAIN() {
 									"All")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Endpoints and associated EndpointGroups, Services, and AppWANs in Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Endpoints and associated EndpointGroups, Services, and AppWANs in Network \"${Target_NETWORK[1]}\"."
 										GetObjects "ENDPOINTS" "FOLLOW-ALL"
 									;;
 									"No Associations - Simple List")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Endpoints in Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Endpoints in Network \"${Target_NETWORK[1]}\"."
 										GetObjects "ENDPOINTS"
 									;;
 									"No Associations - Derive Detail")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Endpoints in Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Endpoints in Network \"${Target_NETWORK[1]}\"."
 										GetObjects "DERIVE-ENDPOINT" 2>/dev/null
 									;;
 								esac
@@ -5245,19 +5261,19 @@ function LaunchMAIN() {
 									"Endpoints")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of EndpointGroups and associated Endpoints in Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of EndpointGroups and associated Endpoints in Network \"${Target_NETWORK[1]}\"."
 										GetObjects "ENDPOINTGROUPS" "FOLLOW-ENDPOINTS"
 									;;
 									"No Associations - Simple List")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of EndpointGroups in Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of EndpointGroups in Network \"${Target_NETWORK[1]}\"."
 										GetObjects "ENDPOINTGROUPS"
 									;;
 									"No Associations - Derive Detail")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of EndpointGroups in Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of EndpointGroups in Network \"${Target_NETWORK[1]}\"."
 										GetObjects "DERIVE-ENDPOINTGROUP" 2>/dev/null
 									;;
 								esac
@@ -5273,31 +5289,31 @@ function LaunchMAIN() {
 									"Endpoints")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Services and associated Endpoints in Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Services and associated Endpoints in Network \"${Target_NETWORK[1]}\"."
 										GetObjects "SERVICES" "FOLLOW-ENDPOINTS"
 									;;
 									"AppWANs")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Services and associated AppWANs in Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Services and associated AppWANs in Network \"${Target_NETWORK[1]}\"."
 										GetObjects "SERVICES" "FOLLOW-APPWANS"
 									;;
 									"All")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Services and associated Endpoints and AppWANs in Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Services and associated Endpoints and AppWANs in Network \"${Target_NETWORK[1]}\"."
 										GetObjects "SERVICES" "FOLLOW-ALL"
 									;;
 									"No Associations - Simple List")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Services in Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Services in Network \"${Target_NETWORK[1]}\"."
 										GetObjects "SERVICES"
 									;;
 									"No Associations - Derive Detail")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Services in Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Services in Network \"${Target_NETWORK[1]}\"."
 										GetObjects "DERIVE-SERVICE" 2>/dev/null
 									;;
 								esac
@@ -5313,31 +5329,31 @@ function LaunchMAIN() {
 									"Services")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of AppWANs and associated Services in Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of AppWANs and associated Services in Network \"${Target_NETWORK[1]}\"."
 										GetObjects "APPWANS" "FOLLOW-SERVICES"
 									;;
 									"Endpoints and EndpointGroups")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of AppWANs and associated Endpoints and EndpointGroups in Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of AppWANs and associated Endpoints and EndpointGroups in Network \"${Target_NETWORK[1]}\"."
 										GetObjects "APPWANS" "FOLLOW-ENDPOINTGROUPS_ENDPOINTS"
 									;;
 									"All")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of AppWANs and associated Endpoints, EndpointGroups, and Services in Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of AppWANs and associated Endpoints, EndpointGroups, and Services in Network \"${Target_NETWORK[1]}\"."
 										GetObjects "APPWANS" "FOLLOW-ALL"
 									;;
 									"No Associations - Simple List")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of AppWANs in Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of AppWANs in Network \"${Target_NETWORK[1]}\"."
 										GetObjects "APPWANS"
 									;;
 									"No Associations - Derive Detail")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of AppWANs in Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of AppWANs in Network \"${Target_NETWORK[1]}\"."
 										GetObjects "DERIVE-APPWAN" 2>/dev/null
 									;;
 								esac
@@ -5353,7 +5369,7 @@ function LaunchMAIN() {
 									"No Associations - Simple List")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of GeoRegions allowed for Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of GeoRegions allowed for Network \"${Target_NETWORK[1]}\"."
 										GetObjects "GEOREGIONS"
 									;;
 								esac
@@ -5369,13 +5385,13 @@ function LaunchMAIN() {
 									"GeoRegion")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Countries and associated GeoRegions allowed for Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Countries and associated GeoRegions allowed for Network \"${Target_NETWORK[1]}\"."
 										GetObjects "COUNTRIES" "FOLLOW-GEOREGION"
 									;;
 									"No Associations - Simple List")
 										! GetFilterString \
 											&& continue
-										AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Countries allowed for Network \"${Target_NETWORK[1]}\"."
+										AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Countries allowed for Network \"${Target_NETWORK[1]}\"."
 										GetObjects "COUNTRIES"
 									;;
 								esac
@@ -5417,7 +5433,7 @@ function LaunchMAIN() {
 								# Ask the user which Endpoint(s) to report on.
 								! GetFilterString "Your filter input applies to only elements in the \"${Target_NETWORK[1]}\" Network which the Bearer Token permits access to." \
 									&& break
-								AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of criteria matching Endpoints in Network \"${Target_NETWORK[1]}\"."
+								AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of criteria matching Endpoints in Network \"${Target_NETWORK[1]}\"."
 								GetObjects "ENDPOINTS" &>/dev/null
 								AllEndpoints=( ${AllEndpoints[*]/???:::/} )
 								# The user needs to select an Endpoint within the Network to target.
@@ -5434,7 +5450,7 @@ function LaunchMAIN() {
 								# Ask the user which Endpoint(s) to report on.
 								! GetFilterString "Your filter input applies to only elements in the \"${Target_NETWORK[1]}\" Network which the Bearer Token permits access to." \
 									&& break
-								AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of criteria matching Endpoints in Network \"${Target_NETWORK[1]}\"."
+								AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of criteria matching Endpoints in Network \"${Target_NETWORK[1]}\"."
 								GetObjects "ENDPOINTS" &>/dev/null
 								AllEndpoints=( ${AllEndpoints[*]/???:::/} )
 								# The user needs to select an Endpoint within the Network to target.
@@ -5474,7 +5490,7 @@ function LaunchMAIN() {
 							CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/MACD/ModifyAppWANAssociations"
 							! GetFilterString "Narrow the AppWANs for modification selection." \
 								&& continue
-							AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of AppWANs in Network \"${Target_NETWORK[1]}\"."
+							AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of AppWANs in Network \"${Target_NETWORK[1]}\"."
 							GetObjects "APPWANS" &>/dev/null
 							while true; do
 								! GetSelection "Select AppWAN to target for modification selection." "${AllAppWANs[*]}" "NONE" \
@@ -5487,7 +5503,7 @@ function LaunchMAIN() {
 							CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/MACD/ModifyEndpointGroupAssociations"
 							! GetFilterString "Narrow the EndpointGroups for modification selection." \
 								&& continue
-							AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of EndpointGroups in Network \"${Target_NETWORK[1]}\"."
+							AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of EndpointGroups in Network \"${Target_NETWORK[1]}\"."
 							GetObjects "ENDPOINTGROUPS" &>/dev/null
 							while true; do
 								! GetSelection "Select EndpointGroup to target for modification selection." "${AllEndpointGroups[*]}" "NONE" \
@@ -5512,7 +5528,7 @@ function LaunchMAIN() {
 							CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/MACD/ChangeEndpointName"
 							! GetFilterString \
 								&& break
-							AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Endpoints in Network \"${Target_NETWORK[1]}\"."
+							AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Endpoints in Network \"${Target_NETWORK[1]}\"."
 							GetObjects "ENDPOINTS" &>/dev/null
 							AllEndpoints=( ${AllEndpoints[*]/???:::/} )
 							while true; do
@@ -5526,7 +5542,7 @@ function LaunchMAIN() {
 							CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/MACD/ChangeEndpointGroupName"
 							! GetFilterString \
 								&& break
-							AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of EndpointGroups in Network \"${Target_NETWORK[1]}\"."
+							AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of EndpointGroups in Network \"${Target_NETWORK[1]}\"."
 							GetObjects "ENDPOINTGROUPS" &>/dev/null
 							while true; do
 								! GetSelection "Select an EndpointGroup to target for name change." "${AllEndpointGroups[*]}" "NONE" \
@@ -5539,7 +5555,7 @@ function LaunchMAIN() {
 							CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/MACD/ChangeServiceName"
 							! GetFilterString \
 								&& break
-							AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Services in Network \"${Target_NETWORK[1]}\"."
+							AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Services in Network \"${Target_NETWORK[1]}\"."
 							GetObjects "SERVICES" &>/dev/null
 							while true; do
 								! GetSelection "Select a Service to target for name change." "${AllServices[*]}" "NONE" \
@@ -5552,7 +5568,7 @@ function LaunchMAIN() {
 							CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/MACD/ChangeAppWANName"
 							! GetFilterString \
 								&& break
-							AttentionMessage "INFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of AppWANs in Network \"${Target_NETWORK[1]}\"."
+							AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of AppWANs in Network \"${Target_NETWORK[1]}\"."
 							GetObjects "APPWANS" &>/dev/null
 							while true; do
 								! GetSelection "Select an AppWAN to target for name change." "${AllAppWANs[*]}" "NONE" \
