@@ -10,7 +10,7 @@ MyGitHubURL='https://github.com/netfoundry/mop-bash-helpapi'
 #######################################################################################
 # Main Variables - Global Editable
 #######################################################################################
-BulkCreateLogRegKey="FALSE" # Tell the system how to store returned REGKEYs from creation. (TRUE=LOG , FALSE=NOLOG)
+BulkCreateLogRegKey="TRUE" # Tell the system how to store returned REGKEYs from creation. (TRUE=LOG , FALSE=NOLOG)
 MaxIdle="600" # Seconds max without a touch will trigger an exit.
 CURLMaxTime="20" # Seconds max without a response until CURL quits.
 SAFEDir="/etc/NetFoundrySAFE" # A variable that holds the location of the SAFE directory - ensure it is in a ROOT only owned directory.
@@ -184,7 +184,7 @@ function GoToExit() {
 			&& AttentionMessage "ERROR" "${2}"
 		DestroyBearerToken \
 			|| AttentionMessage "ERROR" "Your Bearer Token could not be destroyed."
-		AttentionMessage "WARNING" "REMINDER, never leave your credentials saved on the device or held in buffer in an open window."
+		AttentionMessage "GENERALINFO" "REMINDER, never leave your credentials saved on the device or held in buffer in an open window."
 		AttentionMessage "GREENINFO" "Exiting. [RunTime=$((${SECONDS}/60))m $((${SECONDS}%60))s]"
 		TrackLastTouch "DIE"
 		[[ ! -z "${2}" ]] \
@@ -205,7 +205,7 @@ function GoToExit() {
 			&& AttentionMessage "ERROR" "${2}"
 		DestroyBearerToken \
 			|| AttentionMessage "ERROR" "Your Bearer Token could not be destroyed."
-		AttentionMessage "WARNING" "REMINDER, never leave your credentials saved on the device or held in buffer in an open window."
+		AttentionMessage "GENERALINFO" "REMINDER, never leave your credentials saved on the device or held in buffer in an open window."
 		AttentionMessage "GREENINFO" "Exiting. [RunTime=$((${SECONDS}/60))m $((${SECONDS}%60))s]"
 		TrackLastTouch "DIE"
 		[[ ! -z "${2}" ]] \
@@ -217,7 +217,7 @@ function GoToExit() {
 		FancyPrint "PLAINLOGO"
 		AttentionMessage "REDINFO" "Please be aware that your Bearer Token persists as shown below."
 		echo ${NFN_BEARER:-UNRESOLVED}
-		AttentionMessage "WARNING" "REMINDER, never leave your credentials saved on the device or held in buffer in an open window."
+		AttentionMessage "GENERALINFO" "REMINDER, never leave your credentials saved on the device or held in buffer in an open window."
 		AttentionMessage "GREENINFO" "Exiting. [RunTime=$((${SECONDS}/60))m $((${SECONDS}%60))s]"
 		TrackLastTouch "DIE"
 		exit 0
@@ -230,7 +230,7 @@ function GoToExit() {
 			&& AttentionMessage "ERROR" "${2}"
 		DestroyBearerToken \
 			|| AttentionMessage "ERROR" "Your Bearer Token could not be destroyed."
-		AttentionMessage "WARNING" "REMINDER, never leave your credentials saved on the device or held in buffer in an open window."
+		AttentionMessage "GENERALINFO" "REMINDER, never leave your credentials saved on the device or held in buffer in an open window."
 		AttentionMessage "GREENINFO" "Exiting. [RunTime=$((${SECONDS}/60))m $((${SECONDS}%60))s]"
 		TrackLastTouch "DIE"
 		exit ${1:-0}
@@ -1519,7 +1519,7 @@ function GetObjects() {
 			if ProcessResponse "${GETSyntax}" "${APIRESTURL}/networks/${Target_NETWORK[0]}/endpoints" "200"; then
 
 				# Gather all objects which match one of the following in order of check A) FilterString=OnlyIfFollowed B) PrimaryFilterString=OnlyFirstList
-				# [1/2/3/X]00:::[NAME]=>UUID
+				# [1/2/3/X]00:::[REGISTRATIONKEY]=>[UUID]
 				AllEndpoints=( \
 					$(echo "${OutputJSON}" \
 						| jq -r '
@@ -1527,7 +1527,7 @@ function GetObjects() {
 							| ._embedded.endpoints
 							| .[]
 							| select(.name == "'${FilterString:-${PrimaryFilterString:-.}}'")
-							| (.currentState | tostring) + ":::" + .name + "=>" + (._links.self.href | split("/"))[-1]
+							| (.currentState | tostring) + ":::" + .registrationKey + "=>" + (._links.self.href | split("/"))[-1]
 						'
 					)
 				)
@@ -1552,7 +1552,7 @@ function GetObjects() {
 					|| SecondaryFilter='##NOSECONDARYFILTER##'
 
 				# Gather all objects which match one of the following in order of check A) FilterString=OnlyIfFollowed B) PrimaryFilterString=OnlyFirstList
-				# [1/2/3/X]00:::[TYPE]:::[NAME]:::UUID
+				# [1/2/3/X]00:::[TYPE]:::[NAME]:::[UUID]
 				AllEndpoints=( \
 					$(echo "${OutputJSON}" \
 						| jq -r '
@@ -4097,13 +4097,15 @@ function BulkCreateEndpoints() {
 
 	# Ensure the file is actually populated.
 	[[ ${OutputCounter[0]} -eq 0 ]] \
+		&& ClearLines "2" \
 		&& AttentionMessage "ERROR" "Bulk Import File \"./${BulkImportFile}\" had ZERO entries - Check the file, its permissions, and try again." \
 		&& return 1
 
 	# Ensure the file is actually populated with something that can be used.
 	[[ ${OutputCounter[1]} -eq 0 ]] \
-		&& AttentionMessage "ERROR" "Bulk Import File \"./${BulkImportFile}\" had ZERO usable entries - Check the file, its permissions, and try again." \
-		&& return 1
+		&& ClearLines "2" \
+		&& AttentionMessage "YELLOWINFO" "Bulk Import File \"./${BulkImportFile}\" had ZERO usable entries." \
+		&& return 0
 
 	# Check point.
 	AttentionMessage "GREENINFO" "Found ${OutputCounterComplete[1]}/${OutputCounterComplete[0]} lines in the import file for processing."
@@ -4187,7 +4189,7 @@ function BulkCreateEndpoints() {
 
 			# Do a lookup on the name and see if it can return a UUID and STATE.
 			FilterString="${Target_ENDPOINTNAME}" # Set the filter to grab only this specific Endpoint name.
-			StoredAttributes=( "${SetObjectReturn:-NO MESSAGE RETURNED}" "-" ) # 0/OriginalReturnMsg
+			StoredAttributes[0]="${SetObjectReturn:-NO MESSAGE RETURNED}" # 0/OriginalReturnMsg
 
 			# If the GetObject returns false, then this is a true failure (could not create and no UUID returned).
 			if ! GetObjects "ENDPOINT-REGSTATE"; then
@@ -4201,13 +4203,22 @@ function BulkCreateEndpoints() {
 			# If the GetObject returns true, then this is not a failure as the Endpoint exists already.
 			else
 
-				let OutputCounter[2]++
-				StoredAttributes=( "${AllEndpoints[0]##*=>}" "REGKEY:NA" ) # 0/ENDPOINT_UUID
+				let OutputCounter[2]++ # Increment the success counter.
+				StoredAttributes[0]="${AllEndpoints##*=>}" # 0/ENDPOINT_UUID.
+				StoredAttributes[2]="${AllEndpoints%%:::*}" # 2/STATE.
+
+				# Determine how to treat the returned registration key.
+				if [[ ${BulkCreateLogRegKey:-FALSE} == "TRUE" ]]; then
+					StoredAttributes[1]="${AllEndpoints%%=>*}" # 1/STATE:::REGISTRATION_KEY.
+					StoredAttributes[1]="${StoredAttributes[1]##*:::}" # 1/REGISTRATION_KEY.
+				else
+					StoredAttributes[1]="REGKEY:REDACTED" # 1/REGISTRATION_KEY.
+				fi
 
 				# A state of 100 indicates the Endpoint is not registered.
-				if [[ ${AllEndpoints[0]%%:::*} -eq 100 ]]; then
+				if [[ ${StoredAttributes[2]} -ne 100 ]]; then
 
-					AttentionMessage "YELLOWINFO" "  ┣━━Endpoint exists, but has not registered yet."
+					AttentionMessage "YELLOWINFO" "  ┣━━Endpoint exists (STATE=${StoredAttributes[2]}), but has not registered yet."
 					BulkExportVar="${BulkExportVar}${NewLine}${InputLine}"
 
 					# Attempt to add to an AppWAN before conclusion?
@@ -4251,7 +4262,7 @@ function BulkCreateEndpoints() {
 
 				else
 
-					AttentionMessage "VALIDATED" "  ┗━Endpoint \"${Target_ENDPOINTNAME}\" exists, and is already registered. No further action taken."
+					AttentionMessage "VALIDATED" "  ┗━Endpoint \"${Target_ENDPOINTNAME}\" exists (STATE=${StoredAttributes[2]}), and is already registered. No further action taken."
 					BulkExportVar="${BulkExportVar}${NewLine}# VALIDATED #${InputLine}"
 
 				fi
