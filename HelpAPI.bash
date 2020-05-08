@@ -10,7 +10,7 @@ MyGitHubURL='https://github.com/netfoundry/mop-bash-helpapi'
 #######################################################################################
 # Main Variables - Global Editable
 #######################################################################################
-BulkCreateLogRegKey="TRUE" # Tell the system how to store returned REGKEYs from creation. (TRUE=LOG , FALSE=NOLOG)
+BulkCreateLogRegKey="FALSE" # Tell the system how to store returned REGKEYs from creation. (TRUE=LOG , FALSE=NOLOG)
 MaxIdle="600" # Seconds max without a touch will trigger an exit.
 CURLMaxTime="20" # Seconds max without a response until CURL quits.
 SAFEDir="/etc/NetFoundrySAFE" # A variable that holds the location of the SAFE directory - ensure it is in a ROOT only owned directory.
