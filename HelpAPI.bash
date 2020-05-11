@@ -4948,7 +4948,7 @@ function CheckingChain() {
 		&& GoToExit "3" "SHASUM/SHA1SUM is a REQUIRED yet NOT INSTALLED utility to determine the hash of a file."
 
 	# Checking Chain - Get the SHASUM hash of the main file from GITHUB and compare to the local hash.
-	SHA1HASH_GIT=$(curl -fsSLm ${CURLMaxTime} -X GET -H "Cache-Control: no-cache" "${MyGitHubRAWURL}" 2>/dev/null || echo ERROR | ${SHA1Exec} 2>/dev/null)
+	SHA1HASH_GIT=$((curl -fsSLm ${CURLMaxTime} -X GET -H "Cache-Control: no-cache" "${MyGitHubRAWURL}" 2>/dev/null || echo ERROR) | ${SHA1Exec} 2>/dev/null)
 	SHA1HASH_LOCAL=$(${SHA1Exec} ${MyName[1]} 2>/dev/null)
 	if [[ "${SHA1HASH_GIT%% *}" == '709c7506b17090bce0d1e2464f39f4a434cf25f1' ]]; then
 		AttentionMessage "REDINFO" "An error occurred when trying to obtain the HASH of the GIT repository - please report!"
