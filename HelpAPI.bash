@@ -4216,7 +4216,7 @@ function BulkCreateEndpoints() {
 				fi
 
 				# A state of 100 indicates the Endpoint is not registered.
-				if [[ ${StoredAttributes[2]} -ne 100 ]]; then
+				if [[ ${StoredAttributes[2]} -eq 100 ]]; then
 
 					AttentionMessage "YELLOWINFO" "  ┣━━Endpoint exists (STATE=${StoredAttributes[2]}), but has not registered yet."
 					BulkExportVar="${BulkExportVar}${NewLine}${InputLine}"
@@ -4940,6 +4940,24 @@ function CheckingChain() {
 			&& GoToExit "3" "GAWK is a REQUIRED yet NOT INSTALLED MACOS utility to parse text strings with pattern matching." \
 			|| alias grep=/usr/local/bin/gawk # GGREP is required vs BSD GREP on MACOS.
 	fi
+
+	# Checking Chain - Determine SHA1 executable.
+	SHA1Exec=$(which shasum 2>/dev/null || which sha1sum 2>/dev/null)
+	[[ ${SHA1Exec:-ERROR} == "ERROR" ]] \
+		&& GoToExit "3" "SHASUM/SHA1SUM is a REQUIRED yet NOT INSTALLED utility to determine the hash of a file."
+
+	# Checking Chain - Determine the runtime directory of the program.
+	SourceDir="${BASH_SOURCE[0]}"
+	while [[ -h "${SourceDir}" ]]; do
+	  ProgramDir="$( cd -P "$( dirname "${SourceDir}" )" >/dev/null 2>&1 && pwd )"
+	  SourceDir="$(readlink "${SourceDir}")"
+	  [[ ${MySourceDir} != /* ]] && SOURCE="$DIR/${SourceDir}"
+	done
+	ProgramDir="$( cd -P "$( dirname "${SourceDir}" )" >/dev/null 2>&1 && pwd )"
+
+	# Checking Chain - Get the SHASUM hash of the files in the ProgramDir for update analysis later.
+	# Future!
+	#${SHA1Exec} ${ProgramDir}/*
 
 	# Finally, check if the user can become elevated.
 	while true; do
