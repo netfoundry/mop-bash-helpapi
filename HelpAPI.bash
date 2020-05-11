@@ -5,6 +5,7 @@
 MyWarranty="This program comes without any warranty, implied or otherwise."
 MyLicense="Use of this program falls under the Apache V2 license."
 MyGitHubURL='https://github.com/netfoundry/mop-bash-helpapi'
+MyGitHubRAWURL='https://raw.githubusercontent.com/netfoundry/mop-bash-helpapi/master/HelpAPI.bash'
 ###################################################################################################################
 
 #######################################################################################
@@ -23,7 +24,7 @@ SAFEDir="/etc/NetFoundrySAFE" # A variable that holds the location of the SAFE d
 SECONDS="0" # Seconds counting since launched.
 ParentPID="$$" # The PID of this script (AKA the parent that spawns subprocesses).
 MyPkgMgr="UNKNOWN" # The OS of the running system.
-MyName="${0##*/}" # Name (base) of the program.
+MyName=( "${0##*/}" "${0}" ) # Name (0/Base 1/Full) of the program.
 TmpDir="/tmp" # The temporary directory this program will use.
 APIConsole="production"
 TeachMode="FALSE" # A special flag that allows emit of certain messages.
@@ -93,7 +94,7 @@ function GoToExit() {
 
 		# Loop until done.
 		while true; do
-			AttentionMessage "GREENINFO" "\"${MyName}\" - Control Options."
+			AttentionMessage "GREENINFO" "\"${MyName[0]}\" - Control Options."
 			! GetSelection "What do you want to do?" "${ControlOptions[*]}" \
 				&& break
 			case ${UserResponse} in
@@ -4494,7 +4495,7 @@ function CheckBearerToken() {
 
 		# Obtained required global variables to retrieve the Bearer Token.
 		NFN_BEARER=$( \
-			curl -sSm ${CURLMaxTime} -X POST -H "content-type: application/json" -H "Cache-Control: no-cache" -H "Authorization: Bearer ${NFN_BEARER}" --data "{
+			curl -sSLm ${CURLMaxTime} -X POST -H "content-type: application/json" -H "Cache-Control: no-cache" -H "Authorization: Bearer ${NFN_BEARER}" --data "{
 					\"client_id\":\"${ThisClientID}\",
 					\"client_secret\": \"${ThisClientSecret}\",
 					\"audience\":\"${APIGatewayDomain}/\",
@@ -4506,10 +4507,10 @@ function CheckBearerToken() {
 		# Check for populated variables.
 		if [[ ${#NFN_BEARER} -gt 200 ]]; then
 			AttentionMessage "GENERALINFO" "API Bearer Token received from \"${APIConsole}\"."
-			GETSyntax="curl -sSim ${CURLMaxTime} -X GET -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Authorization: Bearer ${NFN_BEARER}\""
-			PUTSyntax="curl -sSim ${CURLMaxTime} -X PUT -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Authorization: Bearer ${NFN_BEARER}\""
-			POSTSyntax="curl -sSim ${CURLMaxTime} -X POST -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Authorization: Bearer ${NFN_BEARER}\""
-			DELETESyntax="curl -sSim ${CURLMaxTime} -X DELETE -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Authorization: Bearer ${NFN_BEARER}\""
+			GETSyntax="curl -sSLim ${CURLMaxTime} -X GET -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Authorization: Bearer ${NFN_BEARER}\""
+			PUTSyntax="curl -sSLim ${CURLMaxTime} -X PUT -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Authorization: Bearer ${NFN_BEARER}\""
+			POSTSyntax="curl -sSLim ${CURLMaxTime} -X POST -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Authorization: Bearer ${NFN_BEARER}\""
+			DELETESyntax="curl -sSLim ${CURLMaxTime} -X DELETE -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Authorization: Bearer ${NFN_BEARER}\""
 		else
 			GoToExit "3" "API Bearer Token not received from \"${APIConsole}\".  Please check \"ThisClientID\" and \"ThisClientSecret\" and try again."
 		fi
@@ -4780,20 +4781,20 @@ function ObtainSAFE() {
 #################################################################################
 # Usage and help menu.
 function GeneralHelp() {
-	echo "${MyName} -h/-H    ::: This Usage and Help Menu."
-	echo "${MyName} -X       ::: Use Local Package Manager - Install All Required Programs."
-	echo "${MyName}          ::: All Defaults (Interactive SAFE Select, Enable Text Decoration, Interactive Mode)"
-	echo "${MyName} -S       ::: Begin with Interactive Secure Authenticated File Enclave (SAFE) Select. [DEFAULT]"
-	echo "${MyName} -s [FILE]::: Begin with PreSelected Secure Authenticated File Enclave (SAFE)."
-	echo "${MyName} -P       ::: Enable Text Decoration. [DEFAULT]"
-	echo "${MyName} -p       ::: Limit Text Decoration."
-	echo "${MyName} -T       ::: Include Teaching Information."
-	echo "${MyName} -I       ::: Interactive Mode. [DEFAULT]"
-	echo "${MyName} -B [FILE]::: Bulk Endpoint Creation Mode. Applies [-L]."
-	echo "${MyName} -b       ::: Bulk Endpoint Creation Sub-Usage and Help Menu."
-	echo "${MyName} -D       ::: Enable Debug Messages."
-	echo "${MyName} -q       ::: Quieter Printing Mode."
-	echo "${MyName} -C [????]::: Point API Access towards [production/staging]. [default=production]"
+	echo "${MyName[0]} -h/-H    ::: This Usage and Help Menu."
+	echo "${MyName[0]} -X       ::: Use Local Package Manager - Install All Required Programs."
+	echo "${MyName[0]}          ::: All Defaults (Interactive SAFE Select, Enable Text Decoration, Interactive Mode)"
+	echo "${MyName[0]} -S       ::: Begin with Interactive Secure Authenticated File Enclave (SAFE) Select. [DEFAULT]"
+	echo "${MyName[0]} -s [FILE]::: Begin with PreSelected Secure Authenticated File Enclave (SAFE)."
+	echo "${MyName[0]} -P       ::: Enable Text Decoration. [DEFAULT]"
+	echo "${MyName[0]} -p       ::: Limit Text Decoration."
+	echo "${MyName[0]} -T       ::: Include Teaching Information."
+	echo "${MyName[0]} -I       ::: Interactive Mode. [DEFAULT]"
+	echo "${MyName[0]} -B [FILE]::: Bulk Endpoint Creation Mode. Applies [-L]."
+	echo "${MyName[0]} -b       ::: Bulk Endpoint Creation Sub-Usage and Help Menu."
+	echo "${MyName[0]} -D       ::: Enable Debug Messages."
+	echo "${MyName[0]} -q       ::: Quieter Printing Mode."
+	echo "${MyName[0]} -C [????]::: Point API Access towards [production/staging]. [default=production]"
 	echo
 }
 
@@ -4867,11 +4868,11 @@ function AutoInstallPackages() {
 			GetYorN "Do you want to install \"${MyPkgMgr#*:::}\"?" "Yes" \
 				&& CheckObject "PROG" "ruby" \
 				&& CheckObject "PROG" "curl" \
-				&& ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)" \
+				&& ruby -e "$(curl -fsSLm ${CURLMaxTime} -X GET -H "Cache-Control: no-cache" https://raw.githubusercontent.com/Homebrew/install/master/install)" \
 				&& CheckObject "PROG" "${MyPkgMgr#*:::}" \
 				&& ExecuteInstall "${MyPkgMgr#*:::}"
 				AttentionMessage "GENERALINFO" "Auto installation of required packages reported code \"$?\"."
-			AttentionMessage "GENERALINFO" "Run \"${MyName}\" again without options to check validity of installed programs."
+			AttentionMessage "GENERALINFO" "Run \"${MyName[0]}\" again without options to check validity of installed programs."
 			GoToExit "7"
 		;;
 
@@ -4946,18 +4947,16 @@ function CheckingChain() {
 	[[ ${SHA1Exec:-ERROR} == "ERROR" ]] \
 		&& GoToExit "3" "SHASUM/SHA1SUM is a REQUIRED yet NOT INSTALLED utility to determine the hash of a file."
 
-	# Checking Chain - Determine the runtime directory of the program.
-	SourceDir="${BASH_SOURCE[0]}"
-	while [[ -h "${SourceDir}" ]]; do
-	  ProgramDir="$( cd -P "$( dirname "${SourceDir}" )" >/dev/null 2>&1 && pwd )"
-	  SourceDir="$(readlink "${SourceDir}")"
-	  [[ ${MySourceDir} != /* ]] && SOURCE="$DIR/${SourceDir}"
-	done
-	ProgramDir="$( cd -P "$( dirname "${SourceDir}" )" >/dev/null 2>&1 && pwd )"
-
-	# Checking Chain - Get the SHASUM hash of the files in the ProgramDir for update analysis later.
-	# Future!
-	#${SHA1Exec} ${ProgramDir}/*
+	# Checking Chain - Get the SHASUM hash of the main file from GITHUB and compare to the local hash.
+	SHA1HASH_GIT=$(curl -fsSLm ${CURLMaxTime} -X GET -H "Cache-Control: no-cache" "${MyGitHubRAWURL}" 2>/dev/null || echo ERROR | ${SHA1Exec} 2>/dev/null)
+	SHA1HASH_LOCAL=$(${SHA1Exec} ${MyName[1]} 2>/dev/null)
+	if [[ "${SHA1HASH_GIT%% *}" == '709c7506b17090bce0d1e2464f39f4a434cf25f1' ]]; then
+		AttentionMessage "REDINFO" "An error occurred when trying to obtain the HASH of the GIT repository - please report!"
+		GetYorN "SPECIAL-PAUSE"
+	elif [[ "${SHA1HASH_GIT%% *}" != "${SHA1HASH_LOCAL%% *}" ]]; then
+		AttentionMessage "YELLOWINFO" "A new version of \"${MyName[0]}\" is available to clone, please update!"
+		GetYorN "SPECIAL-PAUSE"
+	fi
 
 	# Finally, check if the user can become elevated.
 	while true; do
@@ -5013,13 +5012,13 @@ function LaunchMAIN() {
 			"H"|"h")
 				SetLimitFancy "TRUE"
 				FancyPrint "PLAINLOGO"
-				AttentionMessage "GREENINFO" "\"${MyName}\" - NetFoundry Custom API Interface Utility - Usage and Help."
+				AttentionMessage "GREENINFO" "\"${MyName[0]}\" - NetFoundry Custom API Interface Utility - Usage and Help."
 				GeneralHelp
 				GoToExit "5"
 			;;
 			"X")
 				SetLimitFancy "TRUE"
-				AttentionMessage "GREENINFO" "\"${MyName}\" - NetFoundry Custom API Interface Utility - Package Installation Mode (PID:\"${ParentPID:-ERROR}\")."
+				AttentionMessage "GREENINFO" "\"${MyName[0]}\" - NetFoundry Custom API Interface Utility - Package Installation Mode (PID:\"${ParentPID:-ERROR}\")."
 				AutoInstallPackages
 				GoToExit "3" "An unspecified error occurred." # Should exit before this.
 			;;
@@ -5044,7 +5043,7 @@ function LaunchMAIN() {
 			"B")
 				SetLimitFancy "TRUE"
 				QuietPrint="TRUE"
-				AttentionMessage "GREENINFO" "\"${MyName}\" - NetFoundry Custom API Interface Utility - Bulk Endpoint Creation Mode (PID:\"${ParentPID:-ERROR}\")."
+				AttentionMessage "GREENINFO" "\"${MyName[0]}\" - NetFoundry Custom API Interface Utility - Bulk Endpoint Creation Mode (PID:\"${ParentPID:-ERROR}\")."
 				BulkImportFile="${OPTARG}"
 				if [[ -e ${BulkImportFile:-NOTSET} ]]; then
 					ThisMode="BULKCREATEENDPOINTS"
@@ -5054,7 +5053,7 @@ function LaunchMAIN() {
 			;;
 			"b")
 				FancyPrint "PLAINLOGO"
-				AttentionMessage "GREENINFO" "\"${MyName}\" - NetFoundry Custom API Interface Utility - Bulk Endpoint Creation Usage and Help."
+				AttentionMessage "GREENINFO" "\"${MyName[0]}\" - NetFoundry Custom API Interface Utility - Bulk Endpoint Creation Usage and Help."
 				BulkCreateHelp
 				GoToExit "7"
 			;;
@@ -5069,7 +5068,7 @@ function LaunchMAIN() {
 			;;
 			*)
 				AttentionMessage "ERROR" "Invalid Options."
-				AttentionMessage "GREENINFO" "\"${MyName}\" - NetFoundry Custom API Interface Utility - Usage and Help."
+				AttentionMessage "GREENINFO" "\"${MyName[0]}\" - NetFoundry Custom API Interface Utility - Usage and Help."
 				GeneralHelp
 				GoToExit "5" "Invalid input options."
 			;;
@@ -5082,7 +5081,7 @@ function LaunchMAIN() {
 	if [[ ${ThisMode} == "INTERACTIVE" ]]; then
 		TrackLastTouch "INITIATE" & # Kick off the idle tracker.
 		FancyPrint "ENTERLOGO"
-		AttentionMessage "GREENINFO" "\"${MyName}\" - NetFoundry Custom API Interface Utility - Interactive Mode (PID:\"${ParentPID:-ERROR}\")."
+		AttentionMessage "GREENINFO" "\"${MyName[0]}\" - NetFoundry Custom API Interface Utility - Interactive Mode (PID:\"${ParentPID:-ERROR}\")."
 	fi
 
 	# Current warranty and licensing statements.
