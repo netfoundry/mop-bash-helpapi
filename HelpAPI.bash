@@ -1169,7 +1169,7 @@ function FilterHelp() {
 	FancyPrint $(printf "%s\n" 'Regular Examples...') "1" "1"
 	FancyPrint $(printf "%-30s %s\n" 'Singapore' 'Return objects that have "Singapore" contained within their name.') "0" "0"
 	FancyPrint $(printf "%-30s %s\n" 'Singapore.*DC.*Backup' 'Return objects that have "Singa[anychars]DC[anychars]Backup" contained within their name.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" 'Unit1.*0' 'Return objects that have "Unit1[anychars]5" contained within their name.') "0" "0"
+	FancyPrint $(printf "%-30s %s\n" 'Unit1.*5' 'Return objects that have "Unit1[anychars]5" contained within their name.') "0" "0"
 	FancyPrint $(printf "%-30s %s\n" 'Kapil|Dipesh|Unit.*Singapore' 'Return objects that have either "Kapil" or "Dipesh" or "Unit[anychars]Singapore" contained within their name.') "0" "0"
 	FancyPrint $(printf "%-30s %s\n\n" '*:::Kapil Singapore=>*' 'Return EXACTLY the object that has "Kapil Singapore" as their name.') "0" "0"
 
@@ -4082,6 +4082,11 @@ function BulkCreateEndpoints() {
 	local CSVHeader=( "NAME" "TYPE" "NETWORK_UUID" "GEOREGION_UUID" "ENDPOINTGROUP_UUIDS_[OPT]" "APPWAN_UUIDS_[OPT]" "EMAIL_[OPT]" )
 	local BulkImportVar=$(egrep -v '^[[:space:]]*$' ${BulkImportFile} | tr -dC '[:print:]\t\n') # Sanitized input.
 	local OutputFile="BulkEndpoints-OUTPUT_${CurrentEpoch:-0}.csv"
+
+	# Alert the user about how registration keys will be displayed.
+	[[ ${BulkCreateLogRegKey:-FALSE} == "TRUE" ]] \
+		&& AttentionMessage "WARNING" "The flag \"BulkCreateLogRegKey=${BulkCreateLogRegKey:-ERROR}\" and registration keys WILL be placed into the OUTPUT file." \
+		|| AttentionMessage "GREENINFO" "The flag \"BulkCreateLogRegKey=${BulkCreateLogRegKey:-ERROR}\" and registration keys WILL NOT be placed into the OUTPUT file."
 
 	# Give the user a way out of this.
 	AttentionMessage "WARNING" "You are about to bulk create new Endpoints as listed below."
