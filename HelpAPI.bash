@@ -2398,7 +2398,7 @@ function RunUsageReport() {
 		if GetYorN "Do you wish to flag values higher than a specific amount (in whole MegaBytes)?" "No" ; then
 			while true; do
 				! GetResponse "Enter a valid number (in whole MegaBytes) to flag in the report output." \
-					&& continue
+					&& break
 				if [[ ${UserResponse} =~ ${ValidNumber} ]]; then
 					FlagValue="$((${UserResponse}*100))" # Times 100 for SHELL purposes.
 					break
@@ -4125,6 +4125,7 @@ function BulkCreateEndpoints() {
 		|| echo "# EPOCH,ENDPOINT_NAME,ENDPOINT_TYPE,NETWORK_UUID,GEOREGION_UUID,ENDPOINTGROUPS_STATE,APPWANS_STATE,ENDPOINT_UUID,REGISTRATION_KEY,EMAIL_STATE" > ${OutputFile}
 
 	# Run the analysis over each line in the file.
+
 	DeconstructLine "INIT"
 	for InputLine in ${BulkImportVar};	do
 
@@ -4268,7 +4269,8 @@ function BulkCreateEndpoints() {
 
 				else
 
-					AttentionMessage "VALIDATED" "  ┗━Endpoint \"${Target_ENDPOINTNAME}\" exists (STATE=${StoredAttributes[2]}), and is already registered. No further action taken."
+					AttentionMessage "VALIDATED" "  ┗━Endpoint \"${Target_ENDPOINTNAME}\" exists (STATE=${StoredAttributes[2]}), and is registered. No further action taken."
+					let OutputCounter[10]++ # Increment the registered counter.
 					BulkExportVar="${BulkExportVar}${NewLine}# VALIDATED #${InputLine}"
 
 				fi
@@ -4280,30 +4282,33 @@ function BulkCreateEndpoints() {
 	done
 
 	# Analysis.
-	AttentionMessage "GREENINFO" "Bulk Endpoint Creation Statistics."
-		echo "TOTAL LINES:       ${OutputCounterComplete[0]}"
-		echo "LINES COUNTED:     ${OutputCounterComplete[1]}"
+	echo " ┏Bulk Endpoint Creation Statistics."
+	echo " ┣━START AT $(date -d @${CurrentEpoch:-0})"
+	echo " ┣━TOTAL LINES:        ${OutputCounterComplete[0]}"
+	echo " ┣━LINES COUNTED:     ${OutputCounterComplete[1]}"
 	if [[ $((${OutputCounter[1]})) -ge 1 ]]; then
-		echo "CREATE SUCCESS:    ${OutputCounter[2]} ($(((${OutputCounter[2]}*100)/${OutputCounter[1]}))%)"
-		echo "CREATE FAIL:       ${OutputCounter[3]} ($(((${OutputCounter[3]}*100)/${OutputCounter[1]}))%)"
+		echo " ┣━CREATE SUCCESS:    ${OutputCounter[2]} ($(((${OutputCounter[2]}*100)/${OutputCounter[1]}))%)"
+		echo " ┣━━REGISTERED:       ${OutputCounter[10]:-0} ($(((${OutputCounter[10]:-0}*100)/${OutputCounter[1]}))%)"
+		echo " ┣━━CREATE FAIL:      ${OutputCounter[3]} ($(((${OutputCounter[3]}*100)/${OutputCounter[1]}))%)"
 	fi
 	if [[ $((${OutputCounter[6]}+${OutputCounter[7]})) -ge 1 ]]; then
-		echo "GROUP ADD SUCCESS: ${OutputCounter[6]} ($(((${OutputCounter[6]}*100)/(${OutputCounter[6]}+${OutputCounter[7]})))%)"
-		echo "GROUP ADD FAIL:    ${OutputCounter[7]} ($(((${OutputCounter[7]}*100)/(${OutputCounter[6]}+${OutputCounter[7]})))%)"
+		echo " ┣━GROUP ADD SUCCESS: ${OutputCounter[6]} ($(((${OutputCounter[6]}*100)/(${OutputCounter[6]}+${OutputCounter[7]})))%)"
+		echo " ┣━━GROUP ADD FAIL:   ${OutputCounter[7]} ($(((${OutputCounter[7]}*100)/(${OutputCounter[6]}+${OutputCounter[7]})))%)"
 	fi
 	if [[ $((${OutputCounter[8]}+${OutputCounter[9]})) -ge 1 ]]; then
-		echo "APPWAN ADD SUCCESS:${OutputCounter[8]} ($(((${OutputCounter[8]}*100)/(${OutputCounter[8]}+${OutputCounter[9]})))%)"
-		echo "APPWAN ADD FAIL:   ${OutputCounter[9]} ($(((${OutputCounter[9]}*100)/(${OutputCounter[8]}+${OutputCounter[9]})))%)"
+		echo " ┣━APPWAN ADD SUCCESS:${OutputCounter[8]} ($(((${OutputCounter[8]}*100)/(${OutputCounter[8]}+${OutputCounter[9]})))%)"
+		echo " ┣━━APPWAN ADD FAIL:  ${OutputCounter[9]} ($(((${OutputCounter[9]}*100)/(${OutputCounter[8]}+${OutputCounter[9]})))%)"
 	fi
 	if [[ $((${OutputCounter[4]}+${OutputCounter[5]})) -ge 1 ]]; then
-		echo "EMAIL SEND SUCCESS:${OutputCounter[4]} ($(((${OutputCounter[4]}*100)/(${OutputCounter[4]}+${OutputCounter[5]})))%)"
-		echo "EMAIL SEND FAIL:   ${OutputCounter[5]} ($(((${OutputCounter[5]}*100)/(${OutputCounter[4]}+${OutputCounter[5]})))%)"
+		echo " ┣━EMAIL SEND SUCCESS:${OutputCounter[4]} ($(((${OutputCounter[4]}*100)/(${OutputCounter[4]}+${OutputCounter[5]})))%)"
+		echo " ┣━━EMAIL SEND FAIL:  ${OutputCounter[5]} ($(((${OutputCounter[5]}*100)/(${OutputCounter[4]}+${OutputCounter[5]})))%)"
 	fi
+	echo " ┗━COMPLETE AT $(date)."
 
 	# Update the import file and reveal the output file.
-	AttentionMessage "GENERALINFO" "Output results stored in file \"${OutputFile}\"."
+	AttentionMessage "GREENINFO" "Output results stored in file \"${OutputFile}\"."
 	echo "${BulkExportVar}" > ${BulkImportFile} \
-		&& AttentionMessage "GENERALINFO" "Updated the import file \"${BulkImportFile}\"." \
+		&& AttentionMessage "GREENINFO" "Updated the import file \"${BulkImportFile}\"." \
 		|| AttentionMessage "ERROR" "Could not update the import file \"${BulkImportFile}\"."
 
 	# Only complete 100% pass rate is considered success in the end.
