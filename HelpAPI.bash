@@ -4284,7 +4284,7 @@ function BulkCreateEndpoints() {
 	# Analysis.
 	echo " ┏Bulk Endpoint Creation Statistics."
 	echo " ┣━START AT $(date -d @${CurrentEpoch:-0})"
-	echo " ┣━TOTAL LINES:        ${OutputCounterComplete[0]}"
+	echo " ┣━TOTAL LINES:       ${OutputCounterComplete[0]}"
 	echo " ┣━LINES COUNTED:     ${OutputCounterComplete[1]}"
 	if [[ $((${OutputCounter[1]})) -ge 1 ]]; then
 		echo " ┣━CREATE SUCCESS:    ${OutputCounter[2]} ($(((${OutputCounter[2]}*100)/${OutputCounter[1]}))%)"
@@ -4303,7 +4303,7 @@ function BulkCreateEndpoints() {
 		echo " ┣━EMAIL SEND SUCCESS:${OutputCounter[4]} ($(((${OutputCounter[4]}*100)/(${OutputCounter[4]}+${OutputCounter[5]})))%)"
 		echo " ┣━━EMAIL SEND FAIL:  ${OutputCounter[5]} ($(((${OutputCounter[5]}*100)/(${OutputCounter[4]}+${OutputCounter[5]})))%)"
 	fi
-	echo " ┗━COMPLETE AT $(date)."
+	echo " ┗COMPLETE AT $(date)."
 
 	# Update the import file and reveal the output file.
 	AttentionMessage "GREENINFO" "Output results stored in file \"${OutputFile}\"."
