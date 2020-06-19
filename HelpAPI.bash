@@ -3977,16 +3977,18 @@ function BulkCreateEndpoints() {
 	}
 
 	function DeconstructLine() {
+		local ThisMode="${1}" #
 
-		if [[ ${1} == "INIT" ]]; then
+		if [[ ${ThisMode} == "INIT" ]]; then
 
 			# 0/COMPLETECOUNT 1/ALLCOUNT 2/PASSCOUNT 3/FAILCOUNT 4/EMAILSENT 5/EMAILFAIL 6/PASSEPG 7/FAILEPG 8/PASSAPW 9/FAILAPW
 			OutputCounter=( "0" "0" "0" "0" "0" "0" "0" "0" "0" "0" "0" )
 			AppWANState=''
 			EndpointGroupState=''
 			BulkExportVar="# ${CSVHeader[0]},${CSVHeader[1]},${CSVHeader[2]},${CSVHeader[3]},${CSVHeader[4]},${CSVHeader[5]},${CSVHeader[6]}"
+			return 0
 
-		elif [[ ${1} == "PARSE" ]]; then
+		elif [[ ${ThisMode} == "PARSE" ]] || [[ ${ThisMode} == "PARSECHECKONLY" ]]; then
 
 			# Deconstruction of the line.
 			IFS=',' # Lists are comma delimited arrays.
@@ -3998,15 +4000,16 @@ function BulkCreateEndpoints() {
 			# Check for comments/headers.
 			case "${Target_ENDPOINTNAME}" in
 				'# NAME')
-					return 1 # Header line not required, will be recreated later.
+					return 3 # Header line not required, will be recreated later. Not shown.
 				;;
 				"# VALIDATED #"*)
 					BulkExportVar="${BulkExportVar}${NewLine}${InputLine}" # A validation from previous success to be retained.
-					return 1 # Not counted.
+					[[ ${ThisMode} != "PARSECHECKONLY" ]] \
+						&& return 2 # Not counted. Shown if in checking mode only.
 				;;
 				"#"*)
 					BulkExportVar="${BulkExportVar}${NewLine}${InputLine}" # A simple commented line to be retained.
-					return 1
+					return 3 # Not shown.
 				;;
 				*)
 					let OutputCounter[1]++ # All lines that made it here count to be processed.
@@ -4042,35 +4045,46 @@ function BulkCreateEndpoints() {
 
 			# Line checking.
 			if [[ ${Target_ENDPOINTNAME} == "MISSINGNAME" ]] || [[ ${Target_ENDPOINTTYPE} == "MISSINGTYPE" ]] || [[ ${Target_NETWORK} == "MISSINGNETWORK" ]] || [[ ${Target_GEOREGION} == "MISSINGGEOREGION" ]]; then
-				AttentionMessage "ERROR" "The following line is missing required context. Ignoring line."
+				[[ ${ThisMode} == "PARSECHECKONLY" ]] \
+					&& AttentionMessage "ERROR" "The following line is missing required context. Ignoring line."
 				let OutputCounter[3]++ # Increment the failure counter.
 				let OutputCounter[1]-- # Decrement the valid counter.
+				return 1
 			elif [[ ${#Target_ENDPOINTNAME} -lt 5 ]] || [[ ${#Target_ENDPOINTNAME} -gt 64 ]] || [[ ! ${Target_ENDPOINTNAME} =~ ^[[:alnum:]].*[[:alnum:]]$ ]]; then
-				AttentionMessage "ERROR" "The following line contains a name that does not meet naming criteria. Name must be >=5 chars, <=64 chars, and only alphanumeric. Ignoring line."
+				if [[ ${ThisMode} == "PARSECHECKONLY" ]] && [[ ${Target_ENDPOINTNAME} =~ "VALIDATED" ]]; then
+					Target_ENDPOINTNAME="${Target_ENDPOINTNAME/\# VALIDATED \#/}"
+					return 2
+				elif [[ ${ThisMode} == "PARSECHECKONLY" ]]; then
+					AttentionMessage "ERROR" "The following line contains a name that does not meet naming criteria. Name must be >=5 chars, <=64 chars, and only alphanumeric. Ignoring line."
+				fi
 				let OutputCounter[3]++ # Increment the failure counter.
 				let OutputCounter[1]-- # Decrement the valid counter.
+				return 1
 			elif [[ ${#Target_NETWORK} -ne 36 ]] || [[ ${#Target_GEOREGION} -ne 36 ]]; then
-				AttentionMessage "ERROR" "The following line contains a Network UUID or GeoRegion UUID that is not 36 chars. Ignoring line."
+				[[ ${ThisMode} == "PARSECHECKONLY" ]] \
+					&& AttentionMessage "ERROR" "The following line contains a Network UUID or GeoRegion UUID that is not 36 chars. Ignoring line."
 				let OutputCounter[3]++ # Increment the failure counter.
 				let OutputCounter[1]-- # Decrement the valid counter.
+				return 1
 			elif [[ ${AllEndpointGroups} != "NOENDPOINTGROUPS" ]] && [[ ${#AllEndpointGroups} -lt 36 ]]; then
-				[[ ${AllEndpointGroups} =~ "@" ]] \
+				[[ ${ThisMode} == "PARSECHECKONLY" ]] && [[ ${AllEndpointGroups} =~ "@" ]] \
 					&& AttentionMessage "ERROR" "The following line contains EndpointGroup UUID(s) which have an email address instead of a UUID. Ignoring line." \
 					|| AttentionMessage "ERROR" "The following line contains EndpointGroup UUID(s) that are in error. Ignoring line."
 				let OutputCounter[3]++ # Increment the failure counter.
 				let OutputCounter[1]-- # Decrement the valid counter.
+				return 1
 			elif [[ ${AllAppWANs} != "NOAPPWANS" ]] && [[ ${#AllAppWANs} -lt 36 ]]; then
-				[[ ${AllAppWANs} =~ "@" ]] \
+				[[ ${ThisMode} == "PARSECHECKONLY" ]] && [[ ${AllAppWANs} =~ "@" ]] \
 					&& AttentionMessage "ERROR" "The following line contains AppWAN UUID(s) which have an email address instead of a UUID. Ignoring line." \
 					|| AttentionMessage "ERROR" "The following line contains AppWAN UUID(s) that are in error. Ignoring line."
 				let OutputCounter[3]++ # Increment the failure counter.
 				let OutputCounter[1]-- # Decrement the valid counter.
+				return 1
+			else
+				return 0
 			fi
-			IFS=$'\n' # Reset field separator.
 
 		fi
-
-		return 0
 	}
 
 	# 1/BULKIMPORTFILE
@@ -4093,10 +4107,18 @@ function BulkCreateEndpoints() {
 	DeconstructLine "INIT"
 	printf "%-40s %-12s %-15s %-15s %-28s %-28s %s\n" "${CSVHeader[0]}" "${CSVHeader[1]}" "${CSVHeader[2]}" "${CSVHeader[3]}" "${CSVHeader[4]}" "${CSVHeader[5]}" "${CSVHeader[6]}"
 	for InputLine in ${BulkImportVar};	do
-		DeconstructLine "PARSE" \
-			|| continue
-		printf "%-40s %-12s %-15s %-15s %-28s %-28s %s\n" \
-			"${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "...${Target_NETWORK: -5}" "...${Target_GEOREGION: -5}" "${AllEndpointGroupsShort[*]}" "${AllAppWANsShort[*]}" "${Target_EMAIL}"
+		DeconstructLine "PARSECHECKONLY" # RC#0=VALID_PRINT, RC#1=INVALID_PRINT, RC#2=VALID,PRINT, RC#3=VALID,NOPRINT
+		case $? in
+			0) printf "%-40.40s %-12s %-15s %-15s %-28s %-28s %s\n" \
+				"${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "...${Target_NETWORK: -5}" "...${Target_GEOREGION: -5}" "${AllEndpointGroupsShort[*]}" "${AllAppWANsShort[*]}" "${Target_EMAIL}"
+				;;
+			1) printf "\e[${FRed}m%-40.40s\e[1;${Normal}m %-12s %-15s %-15s %-28s %-28s %s\n" \
+				"${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "...${Target_NETWORK: -5}" "...${Target_GEOREGION: -5}" "${AllEndpointGroupsShort[*]}" "${AllAppWANsShort[*]}" "${Target_EMAIL}"
+				;;
+			2) printf "\e[${FGreen}m%-40.40s\e[1;${Normal}m %-12s %-15s %-15s %-28s %-28s %s\n" \
+				"${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "...${Target_NETWORK: -5}" "...${Target_GEOREGION: -5}" "${AllEndpointGroupsShort[*]}" "${AllAppWANsShort[*]}" "${Target_EMAIL}"
+				;;
+		esac
 	done
 	OutputCounterComplete[0]="${OutputCounter[0]}" # Save the complete count.
 	OutputCounterComplete[1]="${OutputCounter[1]}" # Save the complete and valid count.
@@ -4282,26 +4304,25 @@ function BulkCreateEndpoints() {
 	done
 
 	# Analysis.
-	echo " ┏Bulk Endpoint Creation Statistics."
-	echo " ┣━START AT $(date -d @${CurrentEpoch:-0})"
+	echo " ┏BULK ENDPOINT CREATION START AT $(date -d @${CurrentEpoch:-0})"
 	echo " ┣━TOTAL LINES:       ${OutputCounterComplete[0]}"
-	echo " ┣━LINES COUNTED:     ${OutputCounterComplete[1]}"
+	echo " ┣━━LINES COUNTED:     ${OutputCounterComplete[1]}"
 	if [[ $((${OutputCounter[1]})) -ge 1 ]]; then
 		echo " ┣━CREATE SUCCESS:    ${OutputCounter[2]} ($(((${OutputCounter[2]}*100)/${OutputCounter[1]}))%)"
 		echo " ┣━━REGISTERED:       ${OutputCounter[10]:-0} ($(((${OutputCounter[10]:-0}*100)/${OutputCounter[1]}))%)"
 		echo " ┣━━CREATE FAIL:      ${OutputCounter[3]} ($(((${OutputCounter[3]}*100)/${OutputCounter[1]}))%)"
 	fi
 	if [[ $((${OutputCounter[6]}+${OutputCounter[7]})) -ge 1 ]]; then
-		echo " ┣━GROUP ADD SUCCESS: ${OutputCounter[6]} ($(((${OutputCounter[6]}*100)/(${OutputCounter[6]}+${OutputCounter[7]})))%)"
-		echo " ┣━━GROUP ADD FAIL:   ${OutputCounter[7]} ($(((${OutputCounter[7]}*100)/(${OutputCounter[6]}+${OutputCounter[7]})))%)"
+		echo " ┣━GROUP-ADD SUCCESS: ${OutputCounter[6]} ($(((${OutputCounter[6]}*100)/(${OutputCounter[6]}+${OutputCounter[7]})))%)"
+		echo " ┣━━GROUP-ADD FAIL:   ${OutputCounter[7]} ($(((${OutputCounter[7]}*100)/(${OutputCounter[6]}+${OutputCounter[7]})))%)"
 	fi
 	if [[ $((${OutputCounter[8]}+${OutputCounter[9]})) -ge 1 ]]; then
-		echo " ┣━APPWAN ADD SUCCESS:${OutputCounter[8]} ($(((${OutputCounter[8]}*100)/(${OutputCounter[8]}+${OutputCounter[9]})))%)"
-		echo " ┣━━APPWAN ADD FAIL:  ${OutputCounter[9]} ($(((${OutputCounter[9]}*100)/(${OutputCounter[8]}+${OutputCounter[9]})))%)"
+		echo " ┣━APPWAN-ADD SUCCESS:${OutputCounter[8]} ($(((${OutputCounter[8]}*100)/(${OutputCounter[8]}+${OutputCounter[9]})))%)"
+		echo " ┣━━APPWAN-ADD FAIL:  ${OutputCounter[9]} ($(((${OutputCounter[9]}*100)/(${OutputCounter[8]}+${OutputCounter[9]})))%)"
 	fi
 	if [[ $((${OutputCounter[4]}+${OutputCounter[5]})) -ge 1 ]]; then
-		echo " ┣━EMAIL SEND SUCCESS:${OutputCounter[4]} ($(((${OutputCounter[4]}*100)/(${OutputCounter[4]}+${OutputCounter[5]})))%)"
-		echo " ┣━━EMAIL SEND FAIL:  ${OutputCounter[5]} ($(((${OutputCounter[5]}*100)/(${OutputCounter[4]}+${OutputCounter[5]})))%)"
+		echo " ┣━EMAIL-SEND SUCCESS:${OutputCounter[4]} ($(((${OutputCounter[4]}*100)/(${OutputCounter[4]}+${OutputCounter[5]})))%)"
+		echo " ┣━━EMAIL-SEND FAIL:  ${OutputCounter[5]} ($(((${OutputCounter[5]}*100)/(${OutputCounter[4]}+${OutputCounter[5]})))%)"
 	fi
 	echo " ┗COMPLETE AT $(date)."
 
@@ -4650,7 +4671,7 @@ function ObtainSAFE() {
 			AttentionMessage "GENERALINFO" "The SAFE named \"${SAFEFile##*\/}\" was found and correctly permissioned."
 			while read -r EachLine; do
 				export ${EachLine}
-			done < <(sudo -s bash -c "export GPG_TTY=\$(tty) && gpg -d -q -o - ${SAFEFile} 2>/dev/null")
+			done < <(sudo -s bash -c "export GPG_TTY=\$(tty) && gpg -dqo- ${SAFEFile} 2>/dev/null")
 			# Semi-Validate the variables are actually populated correctly.
 			if [[ ${#ThisClientID} -gt 30 ]] && [[ ${#ThisClientSecret} -gt 30 ]]; then
 				AttentionMessage "GENERALINFO" "Successfully able to ascertain the API ID and Secret from the API SAFE named \"${SAFEFile##*\/}\"."
