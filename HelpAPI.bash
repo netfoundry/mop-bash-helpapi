@@ -4306,7 +4306,7 @@ function BulkCreateEndpoints() {
 	# Analysis.
 	echo " ┏BULK ENDPOINT CREATION START AT $(date -d @${CurrentEpoch:-0})"
 	echo " ┣━TOTAL LINES:       ${OutputCounterComplete[0]}"
-	echo " ┣━━LINES COUNTED:     ${OutputCounterComplete[1]}"
+	echo " ┣━━LINES COUNTED:    ${OutputCounterComplete[1]}"
 	if [[ $((${OutputCounter[1]})) -ge 1 ]]; then
 		echo " ┣━CREATE SUCCESS:    ${OutputCounter[2]} ($(((${OutputCounter[2]}*100)/${OutputCounter[1]}))%)"
 		echo " ┣━━REGISTERED:       ${OutputCounter[10]:-0} ($(((${OutputCounter[10]:-0}*100)/${OutputCounter[1]}))%)"
