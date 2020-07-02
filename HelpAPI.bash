@@ -4429,13 +4429,12 @@ function CreateEndpoints() {
 							&& continue
 						Target_EMAIL[0]="${UserResponse}"
 
-						# The user needs to give a name which appears in the email.
-						! GetResponse "Enter your First/Last name, which identifies you as the sender." \
+						# The user needs to give a name (and instructions) which appears in the email.
+						! GetResponse "Enter your First/Last name followed by <br> and instructions if desired." \
 							&& continue
 						Target_EMAIL[1]="${UserResponse}"
 
 					fi
-
 
 					while true; do
 
@@ -4479,6 +4478,23 @@ function CreateEndpoints() {
 									&& AttentionMessage "ERROR" "Email alert transmission failed.  Endpoint remains available." \
 									&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}" \
 									|| AttentionMessage "VALIDATED" "Email alert transmission succeeded."
+							fi
+
+							# Add the Endpoint to the default bulk import file if desired.
+							if GetYorN "Do you want to add the Endpoint as a line in \"$(pwd)/BulkEndpoints.csv\" for subsequent Bulk Import?" "Yes"; then
+
+								case ${Target_ASSOCIATION[0]} in
+									"ENDPOINTGROUP")
+										echo "${Target_ENDPOINTNAME},${Target_ENDPOINTTYPE},${Target_NETWORK[0]},${Target_GEOREGION##*=>},${Target_ASSOCIATION[1]##*=>},,${Target_EMAIL[0]}" >> BulkEndpoints.csv # Add the line elements to the file.
+									;;
+									"APPWAN")
+										echo "${Target_ENDPOINTNAME},${Target_ENDPOINTTYPE},${Target_NETWORK[0]},${Target_GEOREGION##*=>},,${Target_ASSOCIATION[1]##*=>},${Target_EMAIL[0]}" >> BulkEndpoints.csv # Add the line elements to the file.
+									;;
+									*)
+										echo "${Target_ENDPOINTNAME},${Target_ENDPOINTTYPE},${Target_NETWORK[0]},${Target_GEOREGION##*=>},,,${Target_EMAIL[0]}" >> BulkEndpoints.csv # Add the line elements to the file.
+									;;
+								esac
+
 							fi
 
 						else
