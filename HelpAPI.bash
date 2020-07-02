@@ -4518,7 +4518,7 @@ function CreateEndpoints() {
 #################################################################################
 # Destroy the NFN Bearer Token.
 function DestroyBearerToken() {
-	if [[ ${NFN_BEARER:-UNSET} == "UNSET" ]]; then
+	if [[ ${NFN_BEARER:-UNSET} == "UNSET" ]] || [[ ${NFN_BEARER:-UNSET} == "null" ]]; then
 		AttentionMessage "YELLOWINFO" "Bearer Token did not exist, and thus was not destroyed."
 		return 0
 	elif ProcessResponse "${POSTSyntax} ${DATASyntax}" "${APIIDENTITYURL}/logout" "200"; then
@@ -4542,7 +4542,7 @@ function CheckBearerToken() {
 
 		# Obtained required global variables to retrieve the Bearer Token.
 		NFN_BEARER=$( \
-			curl -sSLm ${CURLMaxTime} -X POST -H "content-type: application/json" -H "Cache-Control: no-cache" -H "Authorization: Bearer ${NFN_BEARER}" --data "{
+			curl -sSLm ${CURLMaxTime} -X POST -H "content-type: application/json" -H "Cache-Control: no-cache" --data "{
 					\"client_id\":\"${ThisClientID}\",
 					\"client_secret\": \"${ThisClientSecret}\",
 					\"audience\":\"${APIGatewayDomain}/\",
