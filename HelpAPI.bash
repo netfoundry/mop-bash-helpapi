@@ -3881,14 +3881,14 @@ function ModifyEndpointAssociations() {
 }
 
 #################################################################################
-# Delete existing endpoints.
+# Delete existing Endpoints.
 function DeleteEndpoints() {
 	local i
 
 	# The menu will loop around.
 	while true; do
 
-		# Ask the user which Gateway.
+		# Ask the user which Endpoint.
 		FilterString='.'
 		AttentionMessage "GENERALINFO" "Fetching all Endpoints in Network \"${Target_NETWORK[1]}\"."
 		GetObjects "ENDPOINTS" &>/dev/null
@@ -3922,6 +3922,44 @@ function DeleteEndpoints() {
 			return 0
 		else
 			AttentionMessage "ERROR" "Endpoint deletion failed.  Endpoint remains available."
+			echo "MESSAGE: \"${SetObjectReturn:-NO MESSAGE RETURNED}\"."
+			sleep 5
+			return 1
+		fi
+
+done
+}
+
+#################################################################################
+# Delete existing EndpointGroups.
+function DeleteEndpointGroups() {
+	local i
+
+	# The menu will loop around.
+	while true; do
+
+		# Ask the user which EndpointGroup.
+		FilterString='.'
+		AttentionMessage "GENERALINFO" "Fetching all EndpointGroups in Network \"${Target_NETWORK[1]}\"."
+		GetObjects "ENDPOINTGROUPS" &>/dev/null
+		AllEndpointGroups=( ${AllEndpointGroups[*]/???:::/} )
+		# The user needs to select an EndpointGroup within the Network to target.
+		! GetSelection "Select the target EndpointGroup to delete." "${AllEndpointGroups[*]}" "NONE" \
+			&& return 0
+		# NAME=>TYPE-UUID
+		Target_ENDPOINTGROUP[0]="${UserResponse%%=>*}" # TYPE:::NAME
+		Target_ENDPOINTGROUP[1]="${UserResponse##*=>}" # UUID
+
+		AttentionMessage "WARNING" "You are about to delete EndpointGroup \"${Target_ENDPOINTGROUP[0]}\" from Network \"${Target_NETWORK[1]}\"."
+		GetYorN "Ready?" "No" \
+			|| return 0
+
+		SetObjects "DELENDPOINTGROUP" "${Target_ENDPOINTGROUP[1]}"
+		if [[ $? -eq 0 ]]; then
+			AttentionMessage "GREENINFO" "EndpointGroup \"${Target_ENDPOINTGROUP[0]}\" has been deleted."
+			return 0
+		else
+			AttentionMessage "ERROR" "EndpointGroup deletion failed.  EndpointGroup remains available."
 			echo "MESSAGE: \"${SetObjectReturn:-NO MESSAGE RETURNED}\"."
 			sleep 5
 			return 1
@@ -5190,6 +5228,7 @@ function LaunchMAIN() {
 		"Change Service Name"
 		"Change AppWAN Name"
 		"Delete Existing Endpoint"
+		"Delete Existing EndpointGroup"
 	)
 
 	AllMacroOptions=( \
@@ -5653,6 +5692,11 @@ function LaunchMAIN() {
 						"Delete Existing Endpoint")
 							CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/MACD/DeleteEndpoints"
 							DeleteEndpoints
+						;;
+
+						"Delete Existing EndpointGroup")
+							CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/MACD/DeleteEndpointGroups"
+							DeleteEndpointGroups
 						;;
 					esac
 				done
