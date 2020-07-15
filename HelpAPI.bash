@@ -3993,7 +3993,7 @@ function BulkCreateEndpoints() {
 				else
 
 					let OutputCounter[4]++
-					AttentionMessage "VALIDATED" "  ┗━━Email alert transmission succeeded."
+					AttentionMessage "VALIDATED" "  ┗━━Email alert transmission succeeded with registration information and message \"${Target_EMAIL[1]:0:75}\"."
 					echo "${Target_CONTEXT},${StoredAttributes[0]:-UUID_NA},${StoredAttributes[1]:-REGKEY\:NA},SENT:${Target_EMAIL[0]}" >> ${OutputFile}
 
 				fi
@@ -4023,7 +4023,7 @@ function BulkCreateEndpoints() {
 			OutputCounter=( "0" "0" "0" "0" "0" "0" "0" "0" "0" "0" "0" )
 			AppWANState=''
 			EndpointGroupState=''
-			BulkExportVar="# ${CSVHeader[0]},${CSVHeader[1]},${CSVHeader[2]},${CSVHeader[3]},${CSVHeader[4]},${CSVHeader[5]},${CSVHeader[6]}"
+			BulkExportVar="# ${CSVHeader[0]},${CSVHeader[1]},${CSVHeader[2]},${CSVHeader[3]},${CSVHeader[4]},${CSVHeader[5]},${CSVHeader[6]},${CSVHeader[7]}"
 			return 0
 
 		elif [[ ${ThisMode} == "PARSE" ]] || [[ ${ThisMode} == "PARSECHECKONLY" ]]; then
@@ -4063,7 +4063,8 @@ function BulkCreateEndpoints() {
 			Target_EMAIL[0]="${EachLine[6]:-NOEMAIL}" # Local array - EMAIL/TEXT.
 			Target_EMAIL[0]="${Target_EMAIL[0]//[[:space:]]/}" # Remove SPACES.
 			Target_EMAIL[0]="${Target_EMAIL[0]//\;/,}" # Convert semicolon to commas.
-			Target_EMAIL[1]="API AUTOMATION" # Local array - TEXT.
+			Target_EMAIL[1]="${EachLine[7]:-API AUTOMATION}" # Local array - TEXT.
+			Target_EMAIL[1]="${Target_EMAIL[1]:0:75}" # Limit message to 75 chars.
 
 			# Specific to parsing the AllEndpointGroups and AllAppWANs arrays.
 			IFS=';' # AllEndpointGroups and AllAppWANs lists are semi-colon delimited arrays.
@@ -4131,7 +4132,7 @@ function BulkCreateEndpoints() {
 	local InputLine EachLine BulkExportVar OutputCounter OutputCounterComplete
 	local BulkImportFile="${1}"
 	local CurrentEpoch=$(date +%s)
-	local CSVHeader=( "NAME" "TYPE" "NETWORK_UUID" "GEOREGION_UUID" "ENDPOINTGROUP_UUIDS_[OPT]" "APPWAN_UUIDS_[OPT]" "EMAIL_[OPT]" )
+	local CSVHeader=( "NAME" "TYPE" "NETWORK_UUID" "GEOREGION_UUID" "ENDPOINTGROUP_UUIDS_[OPT]" "APPWAN_UUIDS_[OPT]" "EMAIL_[OPT]" "EMAIL_MSG_[OPT]" )
 	local BulkImportVar=$(egrep -v '^[[:space:]]*$' ${BulkImportFile} | tr -dC '[:print:]\t\n') # Sanitized input.
 	local OutputFile="BulkEndpoints-OUTPUT_${CurrentEpoch:-0}.csv"
 
@@ -4143,18 +4144,18 @@ function BulkCreateEndpoints() {
 	# Give the user a way out of this.
 	AttentionMessage "WARNING" "You are about to bulk create new Endpoints as listed below."
 	DeconstructLine "INIT"
-	printf "%-40s %-12s %-15s %-15s %-28s %-28s %s\n" "${CSVHeader[0]}" "${CSVHeader[1]}" "${CSVHeader[2]}" "${CSVHeader[3]}" "${CSVHeader[4]}" "${CSVHeader[5]}" "${CSVHeader[6]}"
+	printf "%-40s %-12s %-15s %-15s %-28s %-28s %-35s %-15s\n" "${CSVHeader[0]}" "${CSVHeader[1]}" "${CSVHeader[2]}" "${CSVHeader[3]}" "${CSVHeader[4]}" "${CSVHeader[5]}" "${CSVHeader[6]}" "${CSVHeader[7]}"
 	for InputLine in ${BulkImportVar};	do
 		DeconstructLine "PARSECHECKONLY" # RC#0=VALID_PRINT, RC#1=INVALID_PRINT, RC#2=VALID,PRINT, RC#3=VALID,NOPRINT
 		case $? in
-			0) printf "%-40.40s %-12s %-15s %-15s %-28s %-28s %s\n" \
-				"${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "...${Target_NETWORK: -5}" "...${Target_GEOREGION: -5}" "${AllEndpointGroupsShort[*]}" "${AllAppWANsShort[*]}" "${Target_EMAIL}"
+			0) printf "%-40.40s %-12s %-15s %-15s %-28s %-28s %-35.35s %-15.15s\n" \
+				"${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "...${Target_NETWORK: -5}" "...${Target_GEOREGION: -5}" "${AllEndpointGroupsShort[*]}" "${AllAppWANsShort[*]}" "${Target_EMAIL[0]/,*/ ++}" "${Target_EMAIL[1]}"
 				;;
-			1) printf "\e[${FRed}m%-40.40s\e[1;${Normal}m %-12s %-15s %-15s %-28s %-28s %s\n" \
-				"${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "...${Target_NETWORK: -5}" "...${Target_GEOREGION: -5}" "${AllEndpointGroupsShort[*]}" "${AllAppWANsShort[*]}" "${Target_EMAIL}"
+			1) printf "\e[${FRed}m%-40.40s\e[1;${Normal}m %-12s %-15s %-15s %-28s %-28s %-35.35s %-15.15s\n" \
+				"${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "...${Target_NETWORK: -5}" "...${Target_GEOREGION: -5}" "${AllEndpointGroupsShort[*]}" "${AllAppWANsShort[*]}" "${Target_EMAIL[0]/,*/ ++}" "${Target_EMAIL[1]}"
 				;;
-			2) printf "\e[${FGreen}m%-40.40s\e[1;${Normal}m %-12s %-15s %-15s %-28s %-28s %s\n" \
-				"${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "...${Target_NETWORK: -5}" "...${Target_GEOREGION: -5}" "${AllEndpointGroupsShort[*]}" "${AllAppWANsShort[*]}" "${Target_EMAIL}"
+			2) printf "\e[${FGreen}m%-40.40s\e[1;${Normal}m %-12s %-15s %-15s %-28s %-28s %-35.35s %-15.15s\n" \
+				"${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "...${Target_NETWORK: -5}" "...${Target_GEOREGION: -5}" "${AllEndpointGroupsShort[*]}" "${AllAppWANsShort[*]}" "${Target_EMAIL[0]/,*/ ++}" "${Target_EMAIL[1]}"
 				;;
 		esac
 	done
@@ -4468,9 +4469,9 @@ function CreateEndpoints() {
 						Target_EMAIL[0]="${UserResponse}"
 
 						# The user needs to give a name (and instructions) which appears in the email.
-						! GetResponse "Enter your First/Last name followed by <br> and instructions if desired." \
+						! GetResponse "Enter your First/Last name followed by <br> and a message if desired. (MAX 75 CHARS)" \
 							&& continue
-						Target_EMAIL[1]="${UserResponse}"
+						Target_EMAIL[1]="${UserResponse:0:75}"
 
 					fi
 
@@ -4639,10 +4640,10 @@ function BulkCreateHelp() {
 	FancyPrint $(printf "%s\n" 'Results from each creation will be stored in a relatively created local file named "./OutputFile="BulkEndpoints-OUTPUT_[EPOCH].csv".') "1" "0"
 	FancyPrint $(printf "%s\n" 'Updates to the input file will be performed for subsequent re-runs against it.') "1" "0"
 	FancyPrint $(printf "%s\n" 'One or more lines of the Comma Separated Values (CSV) list shall include each of the following in the order shown without quotes.') "1" "0"
-	FancyPrint $(printf "%s\n\n" '[ENDPOINT NAME],[ENDPOINT TYPE],[NETWORK UUID],[ENDPOINT GEOREGION UUID],[OPTIONAL: ENDPOINTGROUP UUIDS (semi-colon delimited)],[OPTIONAL: APPWAN UUIDS (semi-colon delimited)],[OPTIONAL: ALERT EMAIL(semi-colon delimited)]') "0" "0"
+	FancyPrint $(printf "%s\n\n" '[ENDPOINT NAME],[ENDPOINT TYPE],[NETWORK UUID],[ENDPOINT GEOREGION UUID],[OPTIONAL: ENDPOINTGROUP UUIDS (semi-colon delimited)],[OPTIONAL: APPWAN UUIDS (semi-colon delimited)],[OPTIONAL: ALERT EMAIL(semi-colon delimited)],[OPTIONAL: ALERT EMAIL MESSAGE],') "0" "0"
 	echo
-	FancyPrint $(printf "%s\n" 'Example: The following line will create a new Endpoint named as shown, of type CLIENT, in network of UUID, in the Region of UUID, added to EndPointGroup of UUID, and TWO Emails with details.') "1" "1"
-	FancyPrint $(printf "%s\n\n" 'NetFoundry Fragale-Nic MacBookPro,CL,2dca15fa-6845-47a5-801c-99e94de6d9a7,20d5c5b8-0006-43b9-99aa-503fd3931fea,2dca15fa-6845-4715-1011-49e94dedd9aa,kapil.barman@netfoundry.io;nic.fragale@netfoundry.io') "0" "0"
+	FancyPrint $(printf "%s\n" 'Example: The following line will create a new Endpoint named as shown, of type CLIENT, in network of UUID, in the Region of UUID, added to EndPointGroup of UUID, and TWO Emails with details using "Welcome!" as the message.') "1" "1"
+	FancyPrint $(printf "%s\n\n" 'NetFoundry Fragale-Nic MacBookPro,CL,2dca15fa-6845-47a5-801c-99e94de6d9a7,20d5c5b8-0006-43b9-99aa-503fd3931fea,2dca15fa-6845-4715-1011-49e94dedd9aa,kapil.barman@netfoundry.io;nic.fragale@netfoundry.io,Welcome!') "0" "0"
 	echo
 	FancyPrint $(printf "%s\n" 'Example: The following line will create a new Endpoint named as shown, of type VCPEGW, in network of UUID, in the Region of UUID, added to AppWAN of UUIDs, with no Email alert being sent.') "1" "1"
 	FancyPrint $(printf "%s\n\n" 'ACME DC-A Trenton-NJ,VCPEGW,2dca15fa-6845-47a5-801c-99e94de6d9a7,9bbca6aa-767c-4c48-b4ab-dac0ead018fc,2dca15fa-6845-4715-1111-99e94de6d9a7;2dca15fa-6845-4715-1111-99e94de6daaa') "0" "0"
