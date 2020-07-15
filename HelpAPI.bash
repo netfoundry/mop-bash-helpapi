@@ -4419,7 +4419,7 @@ function CreateEndpoints() {
 
 				# The user needs to select a GeoRegion that is appropriate.
 				GetObjects "GEOREGIONS" &>/dev/null
-				! GetSelection "Select the target GeoRegion for \"${Target_ENDPOINTNAME}\"." "${AllGeoRegions[*]}" "${Target_GEOREGION%%=>*}" \
+				! GetSelection "Select the target GeoRegion for \"${Target_ENDPOINTNAME}\"." "${AllGeoRegions[*]}" "${Target_GEOREGION}" \
 					&& break
 				Target_GEOREGION=${UserResponse}
 
@@ -4436,7 +4436,7 @@ function CreateEndpoints() {
 								&& break
 							GetObjects "ENDPOINTGROUPS" &>/dev/null
 							AllEndpointGroups=( "${AllEndpointGroups[*]}"	)
-							! GetSelection "Select the target EndpointGroup to associate \"${Target_ENDPOINTNAME}\" with." "${AllEndpointGroups[*]}" "${Target_ASSOCIATION[1]%%=>*}" \
+							! GetSelection "Select the target EndpointGroup to associate \"${Target_ENDPOINTNAME}\" with." "${AllEndpointGroups[*]}" "${Target_ASSOCIATION[1]}" \
 								&& break
 							Target_ASSOCIATION[0]="ENDPOINTGROUP"
 							Target_ASSOCIATION[1]="${UserResponse}"
@@ -4488,7 +4488,7 @@ function CreateEndpoints() {
 						[[ -z ${Target_EMAIL} ]] \
 							&& echo "EMAIL ALERT:   \"NONE\"" \
 							|| echo "EMAIL ALERT:   \"${Target_EMAIL[0]}\" FROM \"${Target_EMAIL[1]}\""
-						GetYorN "Ready?" "No" \
+						GetYorN "Ready?" \
 							|| break 4
 
 						# Create the new Endpoint.
