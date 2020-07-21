@@ -3979,21 +3979,21 @@ function BulkCreateEndpoints() {
 		if [[ ${Target_EMAIL[0]} != "NOEMAIL" ]]; then
 
 			# Alerting.
-			AttentionMessage "GREENINFO" "  ┣━Now attempting Email alert to \"${Target_EMAIL[0]}\"."
+			AttentionMessage "GREENINFO" " ┣━Now attempting Email alert to \"${Target_EMAIL[0]}\"."
 
 			if [[ ${Target_EMAIL[0]} =~ "@" ]]; then
 
 				if ! SetObjects "EMAILALERT" "${StoredAttributes[0]:-ERRNOUUID}" "${Target_EMAIL[0]}" "${Target_EMAIL[1]}"; then
 
 					let OutputCounter[5]++
-					AttentionMessage "ERROR" "  ┗━━Email alert transmission failed.  Endpoint remains available."
+					AttentionMessage "ERROR" " ┗━━Email alert transmission failed.  Endpoint remains available."
 					echo "${SetObjectReturn:-NO MESSAGE RETURNED}"
 					echo "${Target_CONTEXT},${StoredAttributes[0]:-UUID_NA},${StoredAttributes[1]:-REGKEY\:NA},FAIL:${Target_EMAIL[0]}" >> ${OutputFile}
 
 				else
 
 					let OutputCounter[4]++
-					AttentionMessage "VALIDATED" "  ┗━━Email alert transmission succeeded with registration information and message \"${Target_EMAIL[1]:0:75}\"."
+					AttentionMessage "VALIDATED" " ┗━━Email alert transmission succeeded with registration information and message \"${Target_EMAIL[1]:0:75}\"."
 					echo "${Target_CONTEXT},${StoredAttributes[0]:-UUID_NA},${StoredAttributes[1]:-REGKEY\:NA},SENT:${Target_EMAIL[0]}" >> ${OutputFile}
 
 				fi
@@ -4001,14 +4001,14 @@ function BulkCreateEndpoints() {
 			else
 
 				let OutputCounter[5]++
-				AttentionMessage "ERROR" "  ┗━━Email alert transmission failed due to badly formed address. Endpoint remains available."
+				AttentionMessage "ERROR" " ┗━━Email alert transmission failed due to badly formed address. Endpoint remains available."
 				echo "${Target_CONTEXT},${StoredAttributes[0]:-UUID_NA},${StoredAttributes[1]:-REGKEY\:NA},BADEMAIL:${Target_EMAIL[0]}" >> ${OutputFile}
 
 			fi
 
 		else
 
-			AttentionMessage "GREENINFO" "  ┗━━Email alert not required."
+			AttentionMessage "GREENINFO" " ┗━━Email alert not required."
 			echo "${Target_CONTEXT},${StoredAttributes[0]:-UUID_NA},${StoredAttributes[1]:-REGKEY\:NA},NOEMAIL" >> ${OutputFile}
 
 		fi
@@ -4131,10 +4131,10 @@ function BulkCreateEndpoints() {
 	local Target_APPWAN Target_ENDPOINTGROUP AllEndpointGroups AllEndpointGroupsShort EndpointGroupState AllAppWANs AllAppWANsShort AppWANState
 	local InputLine EachLine BulkExportVar OutputCounter OutputCounterComplete
 	local BulkImportFile="${1}"
-	local CurrentEpoch=$(date +%s)
+	local TimeCapture=( "$(date +%s)" "0" "0" ) # EPOCH seconds. 1=CURRENT 2=ENDOFIMPORT 3=DELTA
 	local CSVHeader=( "NAME" "TYPE" "NETWORK_UUID" "GEOREGION_UUID" "ENDPOINTGROUP_UUIDS_[OPT]" "APPWAN_UUIDS_[OPT]" "EMAIL_[OPT]" "EMAIL_MSG_[OPT]" )
 	local BulkImportVar=$(egrep -v '^[[:space:]]*$' ${BulkImportFile} | tr -dC '[:print:]\t\n') # Sanitized input.
-	local OutputFile="BulkEndpoints-OUTPUT_${CurrentEpoch:-0}.csv"
+	local OutputFile="BulkEndpoints-OUTPUT_${TimeCapture[0]}.csv"
 
 	# Alert the user about how registration keys will be displayed.
 	[[ ${BulkCreateLogRegKey:-FALSE} == "TRUE" ]] \
@@ -4197,7 +4197,7 @@ function BulkCreateEndpoints() {
 			|| continue
 
 		# Run creation.
-		AttentionMessage "GREENINFO" "  ┏[${OutputCounter[1]}/${OutputCounterComplete[1]}] Creating new Endpoint \"${Target_ENDPOINTNAME}\"."
+		AttentionMessage "GREENINFO" " ┏[${OutputCounter[1]}/${OutputCounterComplete[1]}] Creating new Endpoint \"${Target_ENDPOINTNAME}\"."
 		# This Endpoint was newly created.
 		if SetObjects "CREATEENDPOINT" "${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "${Target_GEOREGION}"; then
 
@@ -4210,19 +4210,19 @@ function BulkCreateEndpoints() {
 				StoredAttributes=( "${SetObjectReturn##*=>}" "REGKEY:REDACTED" ) # 0/ENDPOINT_UUID 1/REGISTRATION_KEY.
 			fi
 
-			AttentionMessage "GREENINFO" "  ┣━━Endpoint \"${Target_ENDPOINTNAME}\" creation succeeded."
+			AttentionMessage "GREENINFO" " ┣━━Endpoint \"${Target_ENDPOINTNAME}\" creation succeeded."
 			BulkExportVar="${BulkExportVar}${NewLine}${InputLine}"
 
 			# Attempt to add to an AppWAN before conclusion?
 			if [[ ${AllEndpointGroups} != "NOENDPOINTGROUPS" ]]; then
 				for ((i=0;i<${#AllEndpointGroups[*]};i++)); do
-					AttentionMessage "GREENINFO" "  ┣━Request to add Endpoint to EndpointGroup \"${AllEndpointGroups[${i}]}\" started."
+					AttentionMessage "GREENINFO" " ┣━Request to add Endpoint to EndpointGroup \"${AllEndpointGroups[${i}]}\" started."
 					if SetObjects "ADDENDPOINTTOENDPOINTGROUP" "${StoredAttributes[0]}" "${AllEndpointGroups[${i}]}" &>/dev/null; then
-						AttentionMessage "GREENINFO" "  ┣━━Request to add Endpoint to EndpointGroup is complete."
+						AttentionMessage "GREENINFO" " ┣━━Request to add Endpoint to EndpointGroup is complete."
 						let OutputCounter[6]++ # Increment the pass counter.
 						EndpointGroupState[${i}]="ADDEPG_OK:${AllEndpointGroups[${i}]}"
 					else
-						AttentionMessage "ERROR" "  ┣━━Request to add Endpoint to EndpointGroup did not complete. Endpoint remains available."
+						AttentionMessage "ERROR" " ┣━━Request to add Endpoint to EndpointGroup did not complete. Endpoint remains available."
 						let OutputCounter[7]++ # Increment the fail counter.
 						EndpointGroupState[${i}]="ADDEPG_FAIL:${AllEndpointGroups[${i}]}"
 					fi
@@ -4234,13 +4234,13 @@ function BulkCreateEndpoints() {
 			# Attempt to add to an AppWAN before conclusion?
 			if [[ ${AllAppWANs} != "NOAPPWANS" ]]; then
 				for ((i=0;i<${#AllAppWANs[*]};i++)); do
-					AttentionMessage "GREENINFO" "  ┣━Request to add \"${Target_ENDPOINTNAME}\" to AppWAN \"${AllAppWANs[${i}]}\" started."
+					AttentionMessage "GREENINFO" " ┣━Request to add \"${Target_ENDPOINTNAME}\" to AppWAN \"${AllAppWANs[${i}]}\" started."
 					if SetObjects "ADDENDPOINTTOAPPWAN" "${StoredAttributes[0]}" "${AllAppWANs[${i}]}" &>/dev/null; then
-						AttentionMessage "GREENINFO" "  ┣━Request to add \"${Target_ENDPOINTNAME}\" to AppWAN(s) is complete."
+						AttentionMessage "GREENINFO" " ┣━Request to add \"${Target_ENDPOINTNAME}\" to AppWAN(s) is complete."
 						let OutputCounter[8]++ # Increment the pass counter.
 						AppWANState[${i}]="ADDAPW_OK:${AllAppWANs[${i}]}"
 					else
-						AttentionMessage "ERROR" "  ┣━━Request to add Endpoint to AppWAN did not complete. Endpoint remains available."
+						AttentionMessage "ERROR" " ┣━━Request to add Endpoint to AppWAN did not complete. Endpoint remains available."
 						let OutputCounter[9]++ # Increment the fail counter.
 						AppWANState[${i}]="ADDAPW_FAIL:${AllAppWANs[${i}]}"
 					fi
@@ -4263,7 +4263,7 @@ function BulkCreateEndpoints() {
 			if ! GetObjects "ENDPOINT-REGSTATE"; then
 
 				let OutputCounter[3]++
-				AttentionMessage "ERROR" "  ┗━Endpoint creation failed. See message below."
+				AttentionMessage "ERROR" " ┗━Endpoint creation failed. See message below."
 				echo "${StoredAttributes[0]:-NO MESSAGE RETURNED}"
 				echo "$(date +'%s'),${Target_ENDPOINTNAME},${Target_ENDPOINTTYPE},${Target_NETWORK},${Target_GEOREGION},CREATION_FAILED_NOUUID,CREATION_FAILED_NO_REGISTRATION_KEY,CREATION_FAILED_NO_ENDPOINTGROUP,CREATION_FAILED_NO_APPWAN,EMAIL:${Target_EMAIL[0]}" >> ${OutputFile}
 				BulkExportVar="${BulkExportVar}${NewLine}${InputLine}"
@@ -4286,19 +4286,19 @@ function BulkCreateEndpoints() {
 				# A state of 100 indicates the Endpoint is not registered.
 				if [[ ${StoredAttributes[2]} -eq 100 ]]; then
 
-					AttentionMessage "YELLOWINFO" "  ┣━━Endpoint exists (STATE=${StoredAttributes[2]}), but has not registered yet."
+					AttentionMessage "YELLOWINFO" " ┣━━Endpoint exists (STATE=${StoredAttributes[2]}), but has not registered yet."
 					BulkExportVar="${BulkExportVar}${NewLine}${InputLine}"
 
 					# Attempt to add to an AppWAN before conclusion?
 					if [[ ${AllEndpointGroups} != "NOENDPOINTGROUPS" ]]; then
 						for ((i=0;i<${#AllEndpointGroups[*]};i++)); do
-							AttentionMessage "GREENINFO" "  ┣━Request to add Endpoint to EndpointGroup \"${AllEndpointGroups[${i}]}\" started."
+							AttentionMessage "GREENINFO" " ┣━Request to add Endpoint to EndpointGroup \"${AllEndpointGroups[${i}]}\" started."
 							if SetObjects "ADDENDPOINTTOENDPOINTGROUP" "${StoredAttributes[0]}" "${AllEndpointGroups[${i}]}" &>/dev/null; then
-								AttentionMessage "VALIDATED" "  ┣━━Request to add Endpoint to EndpointGroup is complete."
+								AttentionMessage "VALIDATED" " ┣━━Request to add Endpoint to EndpointGroup is complete."
 								let OutputCounter[6]++ # Increment the pass counter.
 								EndpointGroupState[${i}]="ADDEPG_OK:${AllEndpointGroups[${i}]}"
 							else
-								AttentionMessage "ERROR" "  ┣━━Request to add Endpoint to EndpointGroup did not complete. Endpoint remains available."
+								AttentionMessage "ERROR" " ┣━━Request to add Endpoint to EndpointGroup did not complete. Endpoint remains available."
 								let OutputCounter[7]++ # Increment the fail counter.
 								EndpointGroupState[${i}]="ADDEPG_FAIL:${AllEndpointGroups[${i}]}"
 							fi
@@ -4310,13 +4310,13 @@ function BulkCreateEndpoints() {
 					# Attempt to add to an AppWAN before conclusion?
 					if [[ ${AllAppWANs} != "NOAPPWANS" ]]; then
 						for ((i=0;i<${#AllAppWANs[*]};i++)); do
-							AttentionMessage "GREENINFO" "  ┣━Request to add Endpoint to AppWAN \"${AllAppWANs[${i}]}\" started."
+							AttentionMessage "GREENINFO" " ┣━Request to add Endpoint to AppWAN \"${AllAppWANs[${i}]}\" started."
 							if SetObjects "ADDENDPOINTTOAPPWAN" "${StoredAttributes[0]}" "${AllAppWANs[${i}]}" &>/dev/null; then
-								AttentionMessage "VALIDATED" "  ┣━━Request to add Endpoint to AppWAN is complete."
+								AttentionMessage "VALIDATED" " ┣━━Request to add Endpoint to AppWAN is complete."
 								let OutputCounter[8]++ # Increment the pass counter.
 								AppWANState[${i}]="ADDAPW_OK:${AllAppWANs[${i}]}"
 							else
-								AttentionMessage "ERROR" "  ┣━━Request to add Endpoint to AppWAN did not complete. Endpoint remains available."
+								AttentionMessage "ERROR" " ┣━━Request to add Endpoint to AppWAN did not complete. Endpoint remains available."
 								let OutputCounter[9]++ # Increment the fail counter.
 								AppWANState[${i}]="ADDAPW_FAIL:${AllAppWANs[${i}]}"
 							fi
@@ -4330,7 +4330,7 @@ function BulkCreateEndpoints() {
 
 				else
 
-					AttentionMessage "VALIDATED" "  ┗━Endpoint \"${Target_ENDPOINTNAME}\" exists (STATE=${StoredAttributes[2]}), and is registered. No further action taken."
+					AttentionMessage "VALIDATED" " ┗━Endpoint \"${Target_ENDPOINTNAME}\" exists (STATE=${StoredAttributes[2]}), and is registered. No further action taken."
 					let OutputCounter[10]++ # Increment the registered counter.
 					BulkExportVar="${BulkExportVar}${NewLine}# VALIDATED #${InputLine}"
 
@@ -4343,7 +4343,9 @@ function BulkCreateEndpoints() {
 	done
 
 	# Analysis.
-	echo " ┏BULK ENDPOINT CREATION START AT $(date -d @${CurrentEpoch:-0})"
+	TimeCapture[1]="$(date +%s)"
+	TimeCapture[2]="$((${TimeCapture[1]}-${TimeCapture[0]}))"
+	echo " ┏BULK ENDPOINT CREATION START AT $(date -d @${TimeCapture[0]})"
 	echo " ┣━TOTAL LINES:       ${OutputCounterComplete[0]}"
 	echo " ┣━━LINES COUNTED:    ${OutputCounterComplete[1]}"
 	if [[ $((${OutputCounter[1]})) -ge 1 ]]; then
@@ -4363,7 +4365,7 @@ function BulkCreateEndpoints() {
 		echo " ┣━EMAIL-SEND SUCCESS:${OutputCounter[4]} ($(((${OutputCounter[4]}*100)/(${OutputCounter[4]}+${OutputCounter[5]})))%)"
 		echo " ┣━━EMAIL-SEND FAIL:  ${OutputCounter[5]} ($(((${OutputCounter[5]}*100)/(${OutputCounter[4]}+${OutputCounter[5]})))%)"
 	fi
-	echo " ┗COMPLETE AT $(date)."
+	echo " ┗COMPLETE AT $(date). TOTAL TIME $((${TimeCapture[2]}/60))m $((${TimeCapture[2]}%60))s."
 
 	# Update the import file and reveal the output file.
 	AttentionMessage "GREENINFO" "Output results stored in file \"${OutputFile}\"."
