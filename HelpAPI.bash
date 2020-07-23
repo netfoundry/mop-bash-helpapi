@@ -4040,7 +4040,7 @@ function BulkCreateEndpoints() {
 				'# NAME')
 					return 3 # Header line not required, will be recreated later. Not shown.
 				;;
-				"# VALIDATED #"*)
+				"# VALIDATED"*)
 					BulkExportVar="${BulkExportVar}${NewLine}${InputLine}" # A validation from previous success to be retained.
 					[[ ${ThisMode} != "PARSECHECKONLY" ]] \
 						&& return 2 # Not counted. Shown if in checking mode only.
@@ -4091,7 +4091,7 @@ function BulkCreateEndpoints() {
 				return 1
 			elif [[ ${#Target_ENDPOINTNAME} -lt 5 ]] || [[ ${#Target_ENDPOINTNAME} -gt 64 ]] || [[ ! ${Target_ENDPOINTNAME} =~ ^[[:alnum:]].*[[:alnum:]]$ ]]; then
 				if [[ ${ThisMode} == "PARSECHECKONLY" ]] && [[ ${Target_ENDPOINTNAME} =~ "VALIDATED" ]]; then
-					Target_ENDPOINTNAME="${Target_ENDPOINTNAME/\# VALIDATED \#/}"
+					Target_ENDPOINTNAME="${Target_ENDPOINTNAME/\# VALIDATED*\#/}"
 					return 2
 				elif [[ ${ThisMode} == "PARSECHECKONLY" ]]; then
 					AttentionMessage "ERROR" "The following line contains a name that does not meet naming criteria. Name must be >=5 chars, <=64 chars, and only alphanumeric. Ignoring line."
@@ -4332,7 +4332,7 @@ function BulkCreateEndpoints() {
 
 					AttentionMessage "VALIDATED" " ┗━Endpoint \"${Target_ENDPOINTNAME}\" exists (STATE=${StoredAttributes[2]}), and is registered. No further action taken."
 					let OutputCounter[10]++ # Increment the registered counter.
-					BulkExportVar="${BulkExportVar}${NewLine}# VALIDATED #${InputLine}"
+					BulkExportVar="${BulkExportVar}${NewLine}# VALIDATED_${TimeCapture[0]} #${InputLine}"
 
 				fi
 
