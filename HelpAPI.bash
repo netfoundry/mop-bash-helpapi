@@ -509,7 +509,7 @@ function PrintHelper() {
 				echo "${Normal}"
 			;;
 			"100")
-				echo "PUSH${FDarkGray}"
+				echo "PUSH${FLiteYellow}"
 			;;
 			"OFFLINE"|"200")
 				echo "PUSH${FRed}"
@@ -520,11 +520,8 @@ function PrintHelper() {
 			"ERR")
 				echo "PUSH${Bold};${FRed}"
 			;;
-			"REG")
-				echo "PUSH${FLiteYellow}"
-			;;
-			"PROVISIONING")
-				echo "PUSH${FBlue}"
+			"PROVISIONING"|"NRG")
+				echo "PUSH${FDarkGray}"
 			;;
 			"STATUS")
 				echo "PUSH${FGray}"
@@ -1174,11 +1171,11 @@ function FilterHelp() {
 	FancyPrint $(printf "%-30s %s\n\n" '*:::Kapil Singapore=>*' 'Return EXACTLY the object that has "Kapil Singapore" as their name.') "0" "0"
 
 	FancyPrint $(printf "%s\n" 'Special Endpoint Only Examples...') "1" "1"
-	FancyPrint $(printf "%-30s %s\n" '100:::' 'Return all Endpoint objects in the UNREGISTERED state.') "0" "0"
+	FancyPrint $(printf "%-30s %s\n" 'NRG:::' 'Return all Endpoint objects in the UNREGISTERED state.') "0" "0"
+	FancyPrint $(printf "%-30s %s\n" '100:::' 'Return all Endpoint objects in the REGISTERING state.') "0" "0"
 	FancyPrint $(printf "%-30s %s\n" '200:::' 'Return all Endpoint objects in the OFFLINE state.') "0" "0"
 	FancyPrint $(printf "%-30s %s\n" '300:::' 'Return all Endpoint objects in the ONLINE state.') "0" "0"
 	FancyPrint $(printf "%-30s %s\n" 'ERR:::' 'Return all Endpoint objects in the ERROR/OTHER state.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" 'REG:::' 'Return all Endpoint objects in the REGISTRATION state.') "0" "0"
 	FancyPrint $(printf "%-30s %s\n" ':::CL:::' 'Return all Endpoint objects that are CLIENTS.') "0" "0"
 	FancyPrint $(printf "%-30s %s\n" ':::ZTCL:::' 'Return all Endpoint objects that are ZITI CLIENTS.') "0" "0"
 	FancyPrint $(printf "%-30s %s\n" ':::GW:::' 'Return all Endpoint objects that are INTERNET GATEWAYS.') "0" "0"
@@ -1488,7 +1485,14 @@ function GetObjects() {
 							| ._embedded.endpoints[]
 							| select(.endpointType
 								| contains("GW"))
-							| if (.status == 500) then .currentState = "ERR" elif ((.status == 400) and (.currentState == 100)) then .currentState = "REG" else .currentState = (.currentState | tostring) end
+							|
+								if (.status == 500) then
+									.currentState = "ERR"
+								elif ((.status == 400) and (.currentState == 100)) then
+									.currentState = "REG"
+								else
+									.currentState = (.currentState | tostring)
+								end
 							| .currentState + ":::" + .endpointType + ":::" + .name + "=>" + (._links.self.href | split("/"))[-1]
 						'
 					)
@@ -1554,6 +1558,8 @@ function GetObjects() {
 
 				# Gather all objects which match one of the following in order of check A) FilterString=OnlyIfFollowed B) PrimaryFilterString=OnlyFirstList
 				# [1/2/3/X]00:::[TYPE]:::[NAME]:::[UUID]
+				#  STATUS = 100:NEW, 200:PROVISIONING, 300:PROVISIONED, 400:REGISTERED, 500:ERROR, 600:UPDATING, 700:REPLACING, 800:DELETING, 900:DELETED
+				#  STATE  = 100:REGISTERING, 200:OFFLINE, 300:ONLINE
 				AllEndpoints=( \
 					$(echo "${OutputJSON}" \
 						| jq -r '
@@ -1564,7 +1570,15 @@ function GetObjects() {
 								| sort_by(.name)
 								| .[]
 							), select(.name != null)
-							| if (.status == 500) then .currentState = "ERR" elif ((.status == 400) and (.currentState == 100)) then .currentState = "REG" else .currentState = (.currentState | tostring) end
+							| if ((.status == 100) or (.status == 200) or (.status == 300) or (.status == 600) or (.status == 700)) then
+									.currentState = "NRG"
+								elif ((.status == 500) or (.status == 800) or (.status == 900)) then
+									.currentState = "ERR"
+								elif ((.status == 400) and ((.currentState == 100) or (.currentState == 200) or (.currentState == 300))) then
+									.currentState = (.currentState | tostring)
+								else
+									.currentState = "UNKNOWN"
+								end
 							| .currentState + ":::" + .endpointType + ":::" + .name + "=>" + (._links.self.href | split("/"))[-1]
 						' \
 						| egrep -i "${FilterString:-${PrimaryFilterString:-.}}" \
