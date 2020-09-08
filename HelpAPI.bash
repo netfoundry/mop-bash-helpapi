@@ -1485,13 +1485,14 @@ function GetObjects() {
 							| ._embedded.endpoints[]
 							| select(.endpointType
 								| contains("GW"))
-							|
-								if (.status == 500) then
+							| if ((.status == 100) or (.status == 200) or (.status == 300) or (.status == 600) or (.status == 700)) then
+									.currentState = "NRG"
+								elif ((.status == 500) or (.status == 800) or (.status == 900)) then
 									.currentState = "ERR"
-								elif ((.status == 400) and (.currentState == 100)) then
-									.currentState = "REG"
-								else
+								elif ((.status == 400) and ((.currentState == 100) or (.currentState == 200) or (.currentState == 300))) then
 									.currentState = (.currentState | tostring)
+								else
+									.currentState = "UNKNOWN"
 								end
 							| .currentState + ":::" + .endpointType + ":::" + .name + "=>" + (._links.self.href | split("/"))[-1]
 						'
@@ -2684,7 +2685,7 @@ function RunEventReport() {
 					ToState="ONLINE"
 					ReturnCode="2"
 					let TallyOnline[0]++
-				elif [[ "${2}" =~ "Registration" ]] || [[ "${2}" =~ "Register" ]] || [[ "${2}" =~ "CSR request" ]] || [[ "${2}" =~ "VTC Provisioning" ]]; then
+				elif [[ "${2}" =~ "fstration" ]] || [[ "${2}" =~ "Register" ]] || [[ "${2}" =~ "CSR request" ]] || [[ "${2}" =~ "VTC Provisioning" ]]; then
 					ToState="PROVISIONING"
 					PrintHeader="   ${IconStash[13]}  "
 					PrintTopic=":::PROVISIONING INFO"
@@ -4297,8 +4298,8 @@ function BulkCreateEndpoints() {
 					StoredAttributes[1]="REGKEY:REDACTED" # 1/REGISTRATION_KEY.
 				fi
 
-				# A state of 100 indicates the Endpoint is not registered.
-				if [[ ${StoredAttributes[2]} -eq 100 ]]; then
+				# A state of any except 200/300 indicates the Endpoint is not registered.
+				if [[ ${StoredAttributes[2]} -ne 200 ]] || [[ ${StoredAttributes[2]} -ne 300 ]]; then
 
 					AttentionMessage "YELLOWINFO" " ┣━━Endpoint exists (STATE=${StoredAttributes[2]}), but has not registered yet."
 					BulkExportVar="${BulkExportVar}${NewLine}${InputLine}"
