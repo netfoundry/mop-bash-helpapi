@@ -2713,9 +2713,9 @@ function RunLastOnlineReport() {
 		EventTiming[3]="$((${EventTiming[2]}*86400))" # The days requested factor in seconds.
 		EventTiming[4]="$((${EventTiming[1]}-${EventTiming[3]}))" # The beginning of the search in epoch.
 
-		AttentionMessage "GENERALINFO" "Searching and generating (${EventTiming[2]} Days, Time Descending) EndPoints last online report."
+		AttentionMessage "GENERALINFO" "Searching and generating (${EventTiming[2]} Days, LOCAL Time Descending) EndPoints last online report."
 		# The return code was TRUE/0.
-		if SearchShards "GETLASTONLINE" "${EventTiming[4]}000" "${EventTiming[1]}000"; then
+		if SearchShards "GETLASTONLINE" "${EventTiming[4]}0000" "${EventTiming[1]}0000"; then
 
 			PrintHelper "BOXHEADLINEA" "EPT # " "${Normal}:::YYYY/MM/DD HH:MM:SS" "NAME=>UNTIL NOW"
 
@@ -2725,13 +2725,13 @@ function RunLastOnlineReport() {
 
 					# 0/NAME 1/LASTONLINE
 					IFS=','; EachReportLine=( ${SearchShardsReturn[${i}]//=>/,} ); IFS=$'\n'
-					EachReportLine[1]="$(date -d "${EachReportLine[1]}" "+%s")" # Time converted to epoch seconds.
+					EachReportLine[1]="$(date -ud "${EachReportLine[1]}" "+%s")" # Time converted to epoch seconds.
 					TotalSeconds="${EventTiming[0]}-${EachReportLine[1]}"
 					DeltaDays="$(((${EventTiming[0]}-${EachReportLine[1]})/86400))"
 					DeltaHours="$((((${EventTiming[0]}-${EachReportLine[1]})/3600)%24))"
 					DeltaMinutes="$(((${EventTiming[0]}-${EachReportLine[1]})%3600/60))"
 					DeltaSeconds="$(((${EventTiming[0]}-${EachReportLine[1]})%60))"
-					PrintHelper "BOXITEMA" "EPT$(printf "%04d" "${i}")" "${Normal}:::$(date +'%Y/%m/%d %H:%M:%S' -ud @${EachReportLine[1]})" "${EachReportLine[0]}=>${IconStash[12]} $(printf "%02dd %02dh %02dm %02ds" "${DeltaDays:-0}" "${DeltaHours:-0}" "${DeltaMinutes:-0}" "${DeltaSeconds:-0}")"
+					PrintHelper "BOXITEMA" "EPT$(printf "%04d" "${i}")" "${Normal}:::$(date +'%Y/%m/%d %H:%M:%S' -d @${EachReportLine[1]})" "${EachReportLine[0]}=>${IconStash[12]} $(printf "%02dd %02dh %02dm %02ds" "${DeltaDays:-0}" "${DeltaHours:-0}" "${DeltaMinutes:-0}" "${DeltaSeconds:-0}")"
 
 				done
 
