@@ -2477,7 +2477,7 @@ function RunUsageReport() {
 			done
 		fi
 
-		AttentionMessage "GENERALINFO" "Historical information trails current time by approximately two hours."
+		AttentionMessage "GENERALINFO" "Historical information trails current time by approximately two hours. [NOW=$(date -u)]"
 		AttentionMessage "GENERALINFO" "Searching and generating (${EventTiming[0]} Month(s) + Current Month, per ${EventTiming[1]}) Endpoint Usage report for \"${Target_ENDPOINT[1]}\"."
 		# The return code was TRUE/0.
 		if SearchShards "${Target_ENDPOINT[3]}" "now-${EventTiming[0]}M" "now" "${EventTiming[1]}" "${Target_ENDPOINT[2]}"; then
@@ -2594,7 +2594,7 @@ function RunUsageReport() {
 						SaveShards=( ${SearchShardsReturn[*]} )
 
 						# At this point, there is a valid FROM and TO time period.
-						AttentionMessage "GENERALINFO" "Historical information trails current time by approximately two hours."
+						AttentionMessage "GENERALINFO" "Historical information trails current time by approximately two hours. [NOW=$(date -u)]"
 						AttentionMessage "GENERALINFO" "Searching and generating (${EventTiming[1]} of ${DrillTiming[0]:0:${DateFormat}}) usage breakdown report for \"${Target_ENDPOINT[1]}\"."
 
 						# The return code was TRUE/0.
@@ -2716,8 +2716,8 @@ function RunLastActivityReport() {
 		EventTiming[4]="$((${EventTiming[1]}-${EventTiming[3]}))" # The beginning of the search in epoch.
 
 		AttentionMessage "GENERALINFO" "Last activity is determined by data flow on an Endpoint's control channel."
-		AttentionMessage "GENERALINFO" "Historical information trails current time by approximately two hours."
-		AttentionMessage "GENERALINFO" "Searching and generating (${EventTiming[2]} Days, UTC Time Descending) EndPoints Last Activity report."
+		AttentionMessage "GENERALINFO" "Historical information trails current time by approximately two hours. [NOW=$(date -u)]"
+		AttentionMessage "GENERALINFO" "Searching and generating (${EventTiming[2]} Days, UTC Time Descending) Endoints Last Activity report."
 		# The return code was TRUE/0.
 		if SearchShards "GETLASTACTIVITY" "${EventTiming[4]}000" "${EventTiming[1]}000"; then
 
