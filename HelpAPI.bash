@@ -2127,7 +2127,7 @@ function SearchShards() {
 
 	case ${SearchType} in
 
-		"GETLASTONLINE")
+		"GETLASTACTIVITY")
 			# 2/BEGINEPOCHMILLI 3/ENDEPOCHMILLI
 			DATASyntax="--data '{\"aggs\":{\"EndpointName\":{\"terms\":{\"field\":\"commonName.keyword\",\"size\":10000,\"order\":{\"lastTimeOnline\":\"desc\"}},\"aggs\":{\"lastTimeOnline\":{\"max\":{\"field\":\"@timestamp\"}}}}},\"query\":{\"bool\":{\"must\":[{\"match_all\":{}},{\"match_phrase\":{\"networkId\":{\"query\":\"${Target_NETWORK[0]}\"}}},{\"range\":{\"@timestamp\":{\"gte\":\"${2}\",\"lte\":\"${3}\",\"format\":\"epoch_millis\"}}},{\"match_phrase\":{\"organizationId\":{\"query\":\"${Target_ORGANIZATION[0]}\"}}}],\"must_not\":[{\"match_phrase\":{\"nodeType.keyword\":{\"query\":\"TransferNode\"}}}]}},\"size\":0}'"
 			if ProcessResponse "${POSTSyntax} ${DATASyntax}" "${APIRESTURL}/elastic/ncvtchistorical/${Target_ORGANIZATION[0]}/_search/" "200"; then
@@ -2154,7 +2154,7 @@ function SearchShards() {
 
 		"GETSPECIFICSTATUS")
 			# 2/BEGINEPOCHMILLI 3/ENDEPOCHMILLI 4/ENDPOINTUUID
-			DATASyntax="--data '{\"query\":{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"*\",\"analyze_wildcard\":true}},{\"match_phrase\":{\"tags.keyword\":{\"query\":\"customer\"}}},{\"range\":{\"@timestamp\":{\"gte\":${2},\"lte\":${3},\"format\":\"epoch_millis\"}}},{\"match_phrase\":{\"organizationId\":{\"query\":\"${Target_ORGANIZATION[0]}\"}}},{\"match_phrase\":{\"networkId\":{\"query\":\"${Target_NETWORK[0]}\"}}},{\"match_phrase\":{\"resourceId\":{\"query\":\"${4}\"}}}],\"must_not\":[{\"match_phrase\":{\"changeType\":{\"query\":\"soft\"}}}]}},\"size\":10000,\"sort\":[{\"@timestamp\":{\"order\":\"desc\",\"unmapped_type\":\"boolean\"}}],\"_source\":{\"excludes\":[]}}'"
+			DATASyntax="--data '{\"aggs\":{\"EndpointName\":{\"terms\":{\"field\":\"commonName.keyword\",\"size\":10000,\"order\":{\"lastTimeOnline\":\"desc\"}},\"aggs\":{\"lastTimeOnline\":{\"max\":{\"field\":\"@timestamp\"}}}}},\"query\":{\"bool\":{\"must\":[{\"match_all\":{}},{\"match_phrase\":{\"networkId\":{\"query\":\"${Target_NETWORK[0]}\"}}},{\"range\":{\"@timestamp\":{\"gte\":\"${2}\",\"lte\":\"${3}\",\"format\":\"epoch_millis\"}}},{\"match_phrase\":{\"organizationId\":{\"query\":\"${Target_ORGANIZATION[0]}\"}}}],\"must_not\":[{\"match_phrase\":{\"nodeType.keyword\":{\"query\":\"TransferNode\"}}}]}},\"size\":0}'"
 			if ProcessResponse "${POSTSyntax} ${DATASyntax}" "${APIRESTURL}/elastic/ncentityevent/${Target_ORGANIZATION[0]}/_search/" "200"; then
 				SearchShardsReturn=( \
 					$(echo ${OutputJSON} \
@@ -2221,7 +2221,7 @@ function SearchShards() {
 
 		"GETNETWORKDRILLUSAGE")
 			# 2/BEGINDATE 3/ENDDATE 4/INCREMENT
-			DATASyntax="--data '{\"size\":0,\"query\":{\"bool\":{\"must\":[{\"match_all\":{}},{\"range\":{\"@timestamp\":{\"gte\":\"${2}\",\"lt\":\"${3}\"}}},{\"match_phrase\":{\"networkId\":{\"query\":\"${Target_NETWORK[0]}\"}}},{\"match_phrase\":{\"organizationId\":{\"query\":\"${Target_ORGANIZATION[0]}\"}}},{\"bool\":{\"should\":[{\"match_phrase\":{\"NetworkDataType\":\"DropTcpTx\"}},{\"match_phrase\":{\"NetworkDataType\":\"DropTcpRx\"}},{\"match_phrase\":{\"NetworkDataType\":\"DropUdpTx\"}},{\"match_phrase\":{\"NetworkDataType\":\"DropUdpRx\"}}],\"minimum_should_match\":1}}]}},\"aggs\":{\"Months\":{\"date_histogram\":{\"field\":\"@timestamp\",\"interval\":\"${4}\",\"time_zone\":\"UTC\",\"min_doc_count\":0},\"aggs\":{\"CommonName\":{\"terms\":{\"field\":\"commonName.keyword\",\"order\":{\"TotalBytes\":\"desc\"}},\"aggs\":{\"TotalBytes\":{\"sum\":{\"field\":\"bytes\"}},\"ProtoBreakdown\":{\"filters\":{\"filters\":{\"DropTcpTx\":{\"query_string\":{\"query\":\"NetworkDataType:(DropTcpTx)\"}},\"DropTcpRx\":{\"query_string\":{\"query\":\"NetworkDataType:(DropTcpRx)\"}},\"DropUdpTx\":{\"query_string\":{\"query\":\"NetworkDataType:(DropUdpTx)\"}},\"DropUdpRx\":{\"query_string\":{\"query\":\"NetworkDataType:(DropUdpRx)\"}}}},\"aggs\":{\"Bytes\":{\"sum\":{\"field\":\"bytes\"}}}}}}}}}}'"
+			DATASyntax="--data '{\"size\":0,\"query\":{\"bool\":{\"must\":[{\"match_all\":{}},{\"range\":{\"@timestamp\":{\"gte\":\"${2}\",\"lt\":\"${3}\"}}},{\"match_phrase\":{\"networkId\":{\"query\":\"${Target_NETWORK[0]}\"}}},{\"match_phrase\":{\"organizationId\":{\"query\":\"${Target_ORGANIZATION[0]}\"}}},{\"bool\":{\"should\":[{\"match_phrase\":{\"NetworkDataType\":\"DropTcpTx\"}},{\"match_phrase\":{\"NetworkDataType\":\"DropTcpRx\"}},{\"match_phrase\":{\"NetworkDataType\":\"DropUdpTx\"}},{\"match_phrase\":{\"NetworkDataType\":\"DropUdpRx\"}}],\"minimum_should_match\":1}}]}},\"aggs\":{\"Months\":{\"date_histogram\":{\"field\":\"@timestamp\",\"interval\":\"${4}\",\"time_zone\":\"UTC\",\"min_doc_count\":0},\"aggs\":{\"CommonName\":{\"terms\":{\"field\":\"commonName.keyword\",\"size\":10000,\"order\":{\"TotalBytes\":\"desc\"}},\"aggs\":{\"TotalBytes\":{\"sum\":{\"field\":\"bytes\"}},\"ProtoBreakdown\":{\"filters\":{\"filters\":{\"DropTcpTx\":{\"query_string\":{\"query\":\"NetworkDataType:(DropTcpTx)\"}},\"DropTcpRx\":{\"query_string\":{\"query\":\"NetworkDataType:(DropTcpRx)\"}},\"DropUdpTx\":{\"query_string\":{\"query\":\"NetworkDataType:(DropUdpTx)\"}},\"DropUdpRx\":{\"query_string\":{\"query\":\"NetworkDataType:(DropUdpRx)\"}}}},\"aggs\":{\"Bytes\":{\"sum\":{\"field\":\"bytes\"}}}}}}}}}}'"
 			if ProcessResponse "${POSTSyntax} ${DATASyntax}" "${APIRESTURL}/elastic/ncvtchistorical/${Target_ORGANIZATION[0]}/_search/" "200"; then
 				SearchShardsReturn=( \
 					$(echo ${OutputJSON} \
@@ -2477,6 +2477,7 @@ function RunUsageReport() {
 			done
 		fi
 
+		AttentionMessage "GENERALINFO" "Historical information trails current time by approximately two hours."
 		AttentionMessage "GENERALINFO" "Searching and generating (${EventTiming[0]} Month(s) + Current Month, per ${EventTiming[1]}) usage report for \"${Target_ENDPOINT[1]}\"."
 		# The return code was TRUE/0.
 		if SearchShards "${Target_ENDPOINT[3]}" "now-${EventTiming[0]}M" "now" "${EventTiming[1]}" "${Target_ENDPOINT[2]}"; then
@@ -2593,6 +2594,7 @@ function RunUsageReport() {
 						SaveShards=( ${SearchShardsReturn[*]} )
 
 						# At this point, there is a valid FROM and TO time period.
+						AttentionMessage "GENERALINFO" "Historical information trails current time by approximately two hours."
 						AttentionMessage "GENERALINFO" "Searching and generating (${EventTiming[1]} of ${DrillTiming[0]:0:${DateFormat}}) usage breakdown report for \"${Target_ENDPOINT[1]}\"."
 
 						# The return code was TRUE/0.
@@ -2683,8 +2685,8 @@ function RunUsageReport() {
 }
 
 #################################################################################
-# A last online report is a for review of the last online event for all Dndpoints.
-function RunLastOnlineReport() {
+# A last activity report is a for review of the last activity event for all Dndpoints.
+function RunLastActivityReport() {
 	local i ReportBegin ReportDuration SearchShardsReturn EachReportLine LastEventEpoch
 	local OutputResponse OutputHeaders OutputJSON
 	local EventTiming # 0/CUREPOCHSEC 1/REQSTART 2/REQDAYS 3/REQSEC 4/BEGINEPOCHSEC
@@ -2698,8 +2700,8 @@ function RunLastOnlineReport() {
 		for ((i=0;i<${#ReportBegin[*]};i++)); do
 			ReportBegin[${i}]="${ReportBegin[${i}]} ($(date -d @$((${EventTiming[0]}-(${ReportBegin[${i}]//\ */}*86400)))))"
 		done
-		! GetSelection "How many days back should the EndPoints last online report begin?" "${ReportBegin[*]}" \
-			&& return 0
+		! GetSelection "How many days back should the EndPoints last activity report begin?" "${ReportBegin[*]}" \
+			&& break 2
 		EventTiming[1]="$((${EventTiming[0]}-(${UserResponse//\ */}*86400)))" # The epoch start.
 
 		# The user needs to select how many days in arears to span the search.
@@ -2707,23 +2709,25 @@ function RunLastOnlineReport() {
 		for ((i=0;i<${#ReportDuration[*]};i++)); do
 			ReportDuration[${i}]="${ReportDuration[${i}]} ($(date -d @$((${EventTiming[1]}-(${ReportDuration[${i}]//\ */}*86400)))))"
 		done
-		! GetSelection "How many days should the EndPoints last online report contain?" "${ReportDuration[*]}" \
-			&& return 0
+		! GetSelection "How many days should the EndPoints last activity report contain?" "${ReportDuration[*]}" \
+			&& continue
 		EventTiming[2]="${UserResponse//\ */}" # The days requested factor.
 		EventTiming[3]="$((${EventTiming[2]}*86400))" # The days requested factor in seconds.
 		EventTiming[4]="$((${EventTiming[1]}-${EventTiming[3]}))" # The beginning of the search in epoch.
 
-		AttentionMessage "GENERALINFO" "Searching and generating (${EventTiming[2]} Days, LOCAL Time Descending) EndPoints last online report."
+		AttentionMessage "GENERALINFO" "Last activity is determined by data flow on an Endpoint's control channel."
+		AttentionMessage "GENERALINFO" "Historical information trails current time by approximately two hours."
+		AttentionMessage "GENERALINFO" "Searching and generating (${EventTiming[2]} Days, Local Time Descending) EndPoints last activity report."
 		# The return code was TRUE/0.
-		if SearchShards "GETLASTONLINE" "${EventTiming[4]}0000" "${EventTiming[1]}0000"; then
-
-			PrintHelper "BOXHEADLINEA" "EPT # " "${Normal}:::YYYY/MM/DD HH:MM:SS" "NAME=>UNTIL NOW"
+		if SearchShards "GETLASTACTIVITY" "${EventTiming[4]}0000" "${EventTiming[1]}0000"; then
 
 			if [[ ${SearchShardsReturn} != "NO SHARDS" ]]; then
 
+				PrintHelper "BOXHEADLINEA" "EPT # " "${Normal}:::YYYY/MM/DD HH:MM:SS" "NAME=>UNTIL NOW"
+
 				for ((i=0;i<${#SearchShardsReturn[*]};i++)); do
 
-					# 0/NAME 1/LASTONLINE
+					# 0/NAME 1/LASTACTIVITY
 					IFS=','; EachReportLine=( ${SearchShardsReturn[${i}]//=>/,} ); IFS=$'\n'
 					EachReportLine[1]="$(date -ud "${EachReportLine[1]}" "+%s")" # Time converted to epoch seconds.
 					TotalSeconds="${EventTiming[0]}-${EachReportLine[1]}"
@@ -2734,6 +2738,8 @@ function RunLastOnlineReport() {
 					PrintHelper "BOXITEMA" "EPT$(printf "%04d" "${i}")" "${Normal}:::$(date +'%Y/%m/%d %H:%M:%S' -d @${EachReportLine[1]})" "${EachReportLine[0]}=>${IconStash[12]} $(printf "%02dd %02dh %02dm %02ds" "${DeltaDays:-0}" "${DeltaHours:-0}" "${DeltaMinutes:-0}" "${DeltaSeconds:-0}")"
 
 				done
+
+				PrintHelper "BOXFOOTLINEA"
 
 			else
 
@@ -2746,7 +2752,6 @@ function RunLastOnlineReport() {
 
 			fi
 
-		PrintHelper "BOXFOOTLINEA"
 		! GetYorN "Perform another Endpoint search and report?" "Yes" \
 			&& break 2 \
 			|| break
@@ -5402,7 +5407,7 @@ function LaunchMAIN() {
 	AllReportOptions=( \
 		"Report Endpoint Events"
 		"Report Endpoint Usage"
-		"Report Endpoints Last Online"
+		"Report Endpoints Last Activity"
 		"Report Network Usage"
 	)
 
@@ -5737,10 +5742,10 @@ function LaunchMAIN() {
 							done
 						;;
 
-						"Report Endpoints Last Online")
+						"Report Endpoints Last Activity")
 							while true; do
-								CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/Reports/EndpointsLastOnline"
-								! RunLastOnlineReport "${UserResponse}" \
+								CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/Reports/EndpointsLastActivity"
+								! RunLastActivityReport "${UserResponse}" \
 									&& break
 							done
 						;;
