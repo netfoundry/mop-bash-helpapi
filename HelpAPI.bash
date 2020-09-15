@@ -5702,6 +5702,8 @@ function LaunchMAIN() {
 			"Reports")
 				while true; do
 
+					AttentionMessage "GENERALINFO" "PLEASE NOTE: All report queries are limited to 10,000 results."
+
 					CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/Reports"
 					! GetSelection "Select the type of Report to perform." "${AllReportOptions[*]}" "NONE" \
 						&& break
