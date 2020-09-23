@@ -1929,8 +1929,8 @@ function GetObjects() {
 
 						[[ ${AskDelete:-0} -eq 2 ]] \
 							&& PrintHelper "BOXITEMASUB" "SRV...." "${FBlack};${BYellow}:::WARNING" "No direct Endpoint or AppWAN associations were found." \
-							&& GetYorN "Do you wish to remove \"${Target_SERVICE[0]##*:::}\"?" "No" "10" \
-								&& (SetObjects "DELSERVICE" "${Target_SERVICE[1]}" \
+							&& (GetYorN "Do you wish to remove \"${Target_SERVICE[0]##*:::}\"?" "No" "10" \
+								&& SetObjects "DELSERVICE" "${Target_SERVICE[1]}" \
 								|| ClearLines "2")
 
 						[[ $((${i}+1)) -eq ${#AllServices[*]} ]] \
