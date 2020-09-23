@@ -2,8 +2,8 @@
 ###################################################################################################################
 # HelpAPI - Help the user interact with the NetFoundry API system.
 # Written by Nic Fragale @ NetFoundry.
-MyWarranty="This program comes without any warranty, implied or otherwise."
-MyLicense="Use of this program falls under the Apache V2 license."
+MyWarranty='This program comes without any warranty, implied or otherwise.'
+MyLicense='Use of this program falls under the Apache V2 license.'
 MyGitHubURL='https://github.com/netfoundry/mop-bash-helpapi'
 MyGitHubRAWURL='https://raw.githubusercontent.com/netfoundry/mop-bash-helpapi/master/HelpAPI.bash'
 ###################################################################################################################
