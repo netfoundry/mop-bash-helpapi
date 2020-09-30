@@ -4737,7 +4737,7 @@ function DestroyBearerToken() {
 function CheckBearerToken() {
 
 	# Bearer Token does not exist and it was not passed in.
-	if [[ ${#NFN_BEARER[0]} -ne 1052 ]]; then
+	if [[ ${NFN_BEARER[0]:-UNSET} == "UNSET" ]]; then
 
 		# Required global variables are not available, thus we cannot continue.
 		[[ -z ${ThisClientID} ]] || [[ -z ${ThisClientSecret} ]] \
@@ -4762,9 +4762,12 @@ function CheckBearerToken() {
 			|| AttentionMessage "GENERALINFO" "API Bearer Token received from \"${APIConsole}\" appears to be correct."
 
 	# Bearer Token does exist from pass in.
-	elif [[ ${#NFN_BEARER[0]} -eq 1052 ]]; then
+	elif [[ ${NFN_BEARER[0]:-UNSET} != "UNSET" ]]; then
 
-		AttentionMessage "GENERALINFO" "API Bearer Token was passed in for \"${APIConsole}\"."
+		# Check parameters.
+		[[ ${#NFN_BEARER[0]} -ne 1052 ]] \
+			&& GoToExit "3" "API Bearer Token from pass in was not correctly formatted." \
+			|| AttentionMessage "GENERALINFO" "API Bearer Token was passed in for \"${APIConsole}\"."
 
 	fi
 
@@ -4796,7 +4799,7 @@ function CheckBearerToken() {
 
 	else
 
-		GoToExit "3" "Organization lookup failed or there were no Organizations available. Please check and try again."
+		GoToExit "3" "No Organizations available. Please check the Bearer Token and/or the Organization health and try again."
 
 	fi
 
