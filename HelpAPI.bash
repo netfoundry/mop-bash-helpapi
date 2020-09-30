@@ -45,6 +45,7 @@ BulkImportFile="NOTSET" # A variable that holds the location of the Bulk Import 
 SAFEFile="UNSET" # A variable that holds the name/org of the SAFE file.
 ThisMode="INTERACTIVE" # A variable that holds the work mode of the program.
 QuietPrint="FALSE" # A variable that holds the print flag for quiet output.
+NFN_BEARER=( "UNSET" "DESTROY" ) # A variable that contains the Bearer Token and a flag to destroy or not.
 NewLine='
 '
 
@@ -69,7 +70,7 @@ function GoToExit() {
 		tput ech 2 # Erase two chars (^C).
 		tput smcup # Save screen contents.
 
-		if [[ ${NFN_BEARER:-UNSET} == "UNSET" ]]; then
+		if [[ ${NFN_BEARER[0]:-UNSET} == "UNSET" ]]; then
 			ControlOptions=( \
 				"Modify Global Search Filter"
 				"Change Networks"
@@ -217,7 +218,7 @@ function GoToExit() {
 
 		FancyPrint "PLAINLOGO"
 		AttentionMessage "REDINFO" "Please be aware that your Bearer Token persists as shown below."
-		echo ${NFN_BEARER:-UNRESOLVED}
+		echo ${NFN_BEARER[0]:-UNSET}
 		AttentionMessage "GENERALINFO" "REMINDER, never leave your credentials saved on the device or held in buffer in an open window."
 		AttentionMessage "GREENINFO" "Exiting. [RunTime=$((${SECONDS}/60))m $((${SECONDS}%60))s]"
 		TrackLastTouch "DIE"
@@ -4715,8 +4716,11 @@ function CreateEndpoints() {
 #################################################################################
 # Destroy the NFN Bearer Token.
 function DestroyBearerToken() {
-	if [[ ${NFN_BEARER:-UNSET} == "UNSET" ]] || [[ ${NFN_BEARER:-UNSET} == "null" ]]; then
+	if [[ ${NFN_BEARER[0]:-UNSET} == "UNSET" ]] || [[ ${NFN_BEARER[0]:-UNSET} == "null" ]]; then
 		AttentionMessage "YELLOWINFO" "Bearer Token did not exist, and thus was not destroyed."
+		return 0
+	elif [[ ${NFN_BEARER[1]} == "RETAIN" ]]; then
+		AttentionMessage "YELLOWINFO" "Bearer Token was passed in. Not attempting to destroy it."
 		return 0
 	elif ProcessResponse "${POSTSyntax} ${DATASyntax}" "${APIIDENTITYURL}/logout" "200"; then
 		AttentionMessage "GENERALINFO" "Bearer Token was destroyed successfully."
@@ -4732,8 +4736,12 @@ function DestroyBearerToken() {
 # Get and store the NFN Bearer Token and Network List.
 function CheckBearerToken() {
 
-	# Bearer Token does not exist, check for other required global variables.
-	if [[ -z ${NFN_BEARER} ]] && [[ ! -z ${ThisClientID} ]] && [[ ! -z ${ThisClientSecret} ]]; then
+	# Bearer Token does not exist and it was not passed in.
+	if [[ ${#NFN_BEARER[0]} -ne 1052 ]]; then
+
+		# Required global variables are not available, thus we cannot continue.
+		[[ -z ${ThisClientID} ]] || [[ -z ${ThisClientSecret} ]] \
+			&& GoToExit "3" "API Bearer Token cannot be received unless \"ThisClientID\" and \"ThisClientSecret\" global variables are set."
 
 		AttentionMessage "GENERALINFO" "API User \"client_id (ThisClientID)\" and API Secret \"client_secret (ThisClientSecret)\" present."
 
@@ -4748,55 +4756,61 @@ function CheckBearerToken() {
 				| jq -r '.access_token' 2>/dev/null
 		)
 
-		# Check for populated variables.
-		if [[ ${#NFN_BEARER} -gt 200 ]]; then
-			AttentionMessage "GENERALINFO" "API Bearer Token received from \"${APIConsole}\"."
-			GETSyntax="curl -sSLim ${CURLMaxTime} -X GET -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Authorization: Bearer ${NFN_BEARER}\""
-			PUTSyntax="curl -sSLim ${CURLMaxTime} -X PUT -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Authorization: Bearer ${NFN_BEARER}\""
-			POSTSyntax="curl -sSLim ${CURLMaxTime} -X POST -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Authorization: Bearer ${NFN_BEARER}\""
-			DELETESyntax="curl -sSLim ${CURLMaxTime} -X DELETE -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Authorization: Bearer ${NFN_BEARER}\""
-		else
-			GoToExit "3" "API Bearer Token not received from \"${APIConsole}\".  Please check \"ThisClientID\" and \"ThisClientSecret\" and try again."
-		fi
+		# Check validity.
+		[[ ${#NFN_BEARER[0]} -ne 1052 ]] \
+			&& GoToExit "3" "API Bearer Token received from \"${APIConsole}\" did not appear to be correct." \
+			|| AttentionMessage "GENERALINFO" "API Bearer Token received from \"${APIConsole}\" appears to be correct."
 
-	elif [[ -z ${ThisClientID} ]] && [[ -z ${ThisClientSecret} ]]; then
+	# Bearer Token does exist from pass in.
+	elif [[ ${#NFN_BEARER[0]} -eq 1052 ]]; then
 
-		# Required global variables are not available, thus we cannot continue.
-		GoToExit "3" "API Bearer Token cannot be received unless \"ThisClientID\" and \"ThisClientSecret\" global variables are set/exported in your shell."
+		AttentionMessage "GENERALINFO" "API Bearer Token was passed in for \"${APIConsole}\"."
 
 	fi
+
+	# Set syntax for future usage.
+	GETSyntax="curl -sSLim ${CURLMaxTime} -X GET -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Authorization: Bearer ${NFN_BEARER[0]}\""
+	PUTSyntax="curl -sSLim ${CURLMaxTime} -X PUT -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Authorization: Bearer ${NFN_BEARER[0]}\""
+	POSTSyntax="curl -sSLim ${CURLMaxTime} -X POST -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Authorization: Bearer ${NFN_BEARER[0]}\""
+	DELETESyntax="curl -sSLim ${CURLMaxTime} -X DELETE -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Authorization: Bearer ${NFN_BEARER[0]}\""
 
 	# If Bearer Token previously or now exists, perform a test on it.
-	if [[ ${#NFN_BEARER} -gt 200 ]]; then
+	# Store global variables.
+	AttentionMessage "GENERALINFO" "Fetching available Organizations."
+	GetObjects "ORGANIZATIONS" 2>/dev/null
+	if [[ ${#AllOrganizations} -gt 0 ]]; then
 
-		# Store global variables.
-		AttentionMessage "GENERALINFO" "Fetching available Organizations."
-		GetObjects "ORGANIZATIONS" 2>/dev/null
-		if [[ ${#AllOrganizations} -gt 0 ]]; then
-			AttentionMessage "GENERALINFO" "Fetching available Networks."
-			GetObjects "NETWORKS" 2>/dev/null
-			GetObjects "IDTENANTS" 2>/dev/null
-			if [[ ${#AllIDTenants} -ge 1 ]]; then
-				for ((i=0;i<${#AllIDTenants[*]};i++)); do
-					AttentionMessage "GENERALINFO" "Identity Tenant #$((${i}+1)): ${AllIDTenants[${i}]}."
-				done
-			else
-				AttentionMessage "ERROR" "No Identitiy Tenants found."
-			fi
+		AttentionMessage "GENERALINFO" "Fetching available Networks."
+		GetObjects "NETWORKS" 2>/dev/null
+		GetObjects "IDTENANTS" 2>/dev/null
+
+		if [[ ${#AllIDTenants} -ge 1 ]]; then
+
+			for ((i=0;i<${#AllIDTenants[*]};i++)); do
+				AttentionMessage "GENERALINFO" "Identity Tenant #$((${i}+1)): ${AllIDTenants[${i}]}."
+			done
+
 		else
-			GoToExit "3" "Organization lookup failed or there were no Organizations available.  Please check and try again."
+			AttentionMessage "ERROR" "No Identity Tenants found."
 		fi
 
-		AttentionMessage "GENERALINFO" "API successfully interacted using the Bearer Token from \"${APIConsole}\"."
-		AttentionMessage "GENERALINFO" "Scrambling and releasing the ClientID and ClientSecret."
-		ThisClientID="${RANDOM}${RANDOM}"
-		ThisClientSecret="${RANDOM}${RANDOM}"
-		unset ThisClientID ThisClientSecret
-		return 0
+	else
+
+		GoToExit "3" "Organization lookup failed or there were no Organizations available.  Please check and try again."
 
 	fi
 
-	GoToExit "3" "Unspecified error which prevented API access occurred."
+	AttentionMessage "GENERALINFO" "API interaction was successful."
+
+	# Release in-memory variables as required.
+	[[ ! -z ${ThisClientID} ]] \
+		&& AttentionMessage "GENERALINFO" "Scrambling and releasing the ClientID." \
+		&& ThisClientID="${RANDOM}${RANDOM}" \
+		&& unset ThisClientID
+	[[ ! -z ${ThisClientID} ]] \
+		&& AttentionMessage "GENERALINFO" "Scrambling and releasing the ClientSecret." \
+		&& ThisClientSecret="${RANDOM}${RANDOM}" \
+		&& unset ThisClientSecret
 }
 
 #################################################################################
@@ -5260,7 +5274,7 @@ function LaunchMAIN() {
 		&& SetLimitFancy "WSL"
 
 	# Get options from command line.
-	while getopts "HhXSs:PpTIB:bDqC:" ThisOpt 2>/dev/null; do
+	while getopts "HhXSs:Ppt:TIB:bDqC:" ThisOpt 2>/dev/null; do
 		case ${ThisOpt} in
 			"H"|"h")
 				SetLimitFancy "TRUE"
@@ -5286,6 +5300,9 @@ function LaunchMAIN() {
 			;;
 			"p")
 				SetLimitFancy "TRUE"
+			;;
+			"t")
+				NFN_BEARER=( "${OPTARG}" "RETAIN" )
 			;;
 			"T")
 				TeachMode="TRUE"
@@ -5346,7 +5363,9 @@ function LaunchMAIN() {
 	CheckingChain
 
 	# Perform startup functions for ensuring variables are ready.
-	if [[ ${SAFEFile} == "UNSET" ]]; then
+	if [[ ${NFN_BEARER-:UNSET} != "UNSET" ]]; then
+		AttentionMessage "GENERALINFO" "Bearer Token passed in. API SAFE not required."
+	elif [[ ${SAFEFile} == "UNSET" ]]; then
 		AttentionMessage "REDINFO" "A NetFoundry API SAFE was not specified. Please select or create a SAFE to continue."
 		ObtainSAFE "MENU"
 	elif [[ ${SAFEFile} == "MENU" ]]; then
