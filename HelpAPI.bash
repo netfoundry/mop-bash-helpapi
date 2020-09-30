@@ -480,7 +480,7 @@ function AttentionMessage() {
 	StrU8DiffLen "${InputHead[1]}"
 	SpecialSyntaxAdder="$?"
 
-	# This output mode means that the text was repeated.  Do not apply decoration if so.
+	# This output mode means that the text was repeated. Do not apply decoration if so.
 	if [[ "${CommentText}" == "${LastText}" ]]; then
 		printf "\e[${OutputColor}m| %-$((1+${SpecialSyntaxAdder}))b %-10s |\e[1;${Normal}m " "${InputHead[1]}" "${InputHead[0]}"
 		FancyPrint "${CommentText}" "0" "0"
@@ -554,7 +554,7 @@ function PrintHelper() {
 	# Padding of 2 spaces are at each end of non-lines.
 	# A total of 135 spaces are free for printing.
 	# Each line consists of the following:
-	#  BOXTOPIC = Line Counter.  (7) (NoColor)
+	#  BOXTOPIC = Line Counter. (7) (NoColor)
 	# [SPACE] (1)
 	#  BOXSUBTOPIC = Variable Name. (26) (Color)
 	# [SPACE] (1)
@@ -629,7 +629,7 @@ function PrintHelper() {
 		for ((i=0;i<${#BoxDetail[*]};i++)); do
 			BoxDetailColor="$(ColorConvert ${BoxDetail[${i}]%:::*})" # [COLOR]:::TEXT
 			BoxDetail[${i}]="${BoxDetail[${i}]#*:::}" # COLOR:::[TEXT]
-			# 1 Pad between Items Only.  EX: 6 Items have 5x1 Pads [I]P[I]P[I]P[I]P[I]P[I] = 95 Spaces - 5Pads = 90 Spaces / 6 = 15 per Item
+			# 1 Pad between Items Only. EX: 6 Items have 5x1 Pads [I]P[I]P[I]P[I]P[I]P[I] = 95 Spaces - 5Pads = 90 Spaces / 6 = 15 per Item
 			BoxDetail[${i}]="${BoxDetail[${i}]:0:$((((100-(100%(${#BoxDetail[*]}-1)))-(${#BoxDetail[*]})-1)/${#BoxDetail[*]}))}" # TEXT (AVAILABLE-(Items-1))/Items
 			StrU8DiffLen "${BoxDetail[${i}]}"
 			SpecialSyntaxAdder="$?"
@@ -2473,7 +2473,7 @@ function RunUsageReport() {
 					FlagValue="$((${UserResponse}*100))" # Times 100 for SHELL purposes.
 					break
 				else
-					AttentionMessage "ERROR" "The value you entered \"${UserResponse}\" is not valid.  Try again."
+					AttentionMessage "ERROR" "The value you entered \"${UserResponse}\" is not valid. Try again."
 				fi
 			done
 		fi
@@ -2578,7 +2578,7 @@ function RunUsageReport() {
 								DrillTiming[0]="${SearchShardsReturn[$((${#SearchShardsReturn[*]}-${DrillInc[0]}))]%=>*}"
 								break
 							else
-								AttentionMessage "ERROR" "The value you entered \"${UserResponse}\" is not valid.  Try again."
+								AttentionMessage "ERROR" "The value you entered \"${UserResponse}\" is not valid. Try again."
 							fi
 						done
 						[[ ${DrillInc:-NULL} == "NULL" ]] \
@@ -2664,7 +2664,7 @@ function RunUsageReport() {
 				[[ ${SearchShardsReturn} == "NO SHARDS" ]] \
 					&& AttentionMessage "WARNING" "The search returned ZERO matching shards/events."
 				[[ ${#SearchShardsReturn[*]} -gt 9999 ]] \
-					&& AttentionMessage "WARNING" "The search returned too many matching shards/events (${#SearchShardsReturn[*]}).  Please narrow the search."
+					&& AttentionMessage "WARNING" "The search returned too many matching shards/events (${#SearchShardsReturn[*]}). Please narrow the search."
 				! GetYorN "Perform another Endpoint search and report?" "Yes" \
 					&& break 2 \
 					|| break
@@ -2674,7 +2674,7 @@ function RunUsageReport() {
 		# The return code was FALSE/1.
 		else
 
-			AttentionMessage "ERROR" "FAILED! The search request failed.  See message below."
+			AttentionMessage "ERROR" "FAILED! The search request failed. See message below."
 			echo "${SetObjectReturn:-NO MESSAGE RETURNED}"
 			! GetYorN "Perform another Endpoint search and report?" "Yes" \
 				&& break 2 \
@@ -2759,7 +2759,7 @@ function RunLastActivityReport() {
 		# The return code was FALSE/1.
 		else
 
-			AttentionMessage "ERROR" "FAILED! The search request failed.  See message below."
+			AttentionMessage "ERROR" "FAILED! The search request failed. See message below."
 			echo "${SetObjectReturn:-NO MESSAGE RETURNED}"
 			! GetYorN "Perform another Endpoint search and report?" "Yes" \
 				&& break 2 \
@@ -3146,7 +3146,7 @@ function RunEventReport() {
 				[[ ${SearchShardsReturn} == "NO SHARDS" ]] \
 					&& AttentionMessage "WARNING" "The search returned ZERO matching shards/events."
 				[[ ${#SearchShardsReturn[*]} -gt 9999 ]] \
-					&& AttentionMessage "WARNING" "The search returned too many matching shards/events (${#SearchShardsReturn[*]}).  Please narrow the search."
+					&& AttentionMessage "WARNING" "The search returned too many matching shards/events (${#SearchShardsReturn[*]}). Please narrow the search."
 				! GetYorN "Perform another Endpoint search and report?" "Yes" \
 					&& break 2 \
 					|| break
@@ -3157,7 +3157,7 @@ function RunEventReport() {
 		# The return code was FALSE/1.
 		else
 
-			AttentionMessage "ERROR" "FAILED! The search request failed.  See message below."
+			AttentionMessage "ERROR" "FAILED! The search request failed. See message below."
 			echo "${SetObjectReturn:-NO MESSAGE RETURNED}"
 			! GetYorN "Perform another Endpoint search and report?" "Yes" \
 				&& break 2 \
@@ -3628,7 +3628,7 @@ function CreateAppWAN() {
 	AttentionMessage "GENERALINFO" "Creating AppWAN \"${Target_APPWANNAME}\"."
 	SetObjects "CREATEAPPWAN" "${Target_APPWANNAME}" \
 		&& AttentionMessage "VALIDATED" "Request to create AppWAN is complete." \
-		|| (AttentionMessage "ERROR" "FAILED! Request to create AppWAN.  See message below." \
+		|| (AttentionMessage "ERROR" "FAILED! Request to create AppWAN. See message below." \
 			&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}")
 }
 
@@ -3651,7 +3651,7 @@ function CreateEndpointGroup() {
 	AttentionMessage "GENERALINFO" "Creating EndpointGroup \"${Target_ENDPOINTGROUPNAME}\"."
 	SetObjects "CREATEENDPOINTGROUP" "${Target_ENDPOINTGROUPNAME}" \
 		&& AttentionMessage "VALIDATED" "Request to create EndpointGroup is complete." \
-		|| (AttentionMessage "ERROR" "FAILED! Request to create EndpointGroup.  See message below." \
+		|| (AttentionMessage "ERROR" "FAILED! Request to create EndpointGroup. See message below." \
 			&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}")
 }
 
@@ -3698,7 +3698,7 @@ function CreateInternetServices() {
 	if SetObjects "CREATEAPPWAN" "${Target_APPWANNAME}"; then
 		Target_APPWANNAME[1]="${SetObjectReturn##*=>}" # The UUID of the AppWAN.
 	else
-		AttentionMessage "ERROR" "FAILED! Request to create AppWAN \"${Target_APPWANNAME[0]}\" did not complete.  See message below."
+		AttentionMessage "ERROR" "FAILED! Request to create AppWAN \"${Target_APPWANNAME[0]}\" did not complete. See message below."
 		echo "${SetObjectReturn:-NO MESSAGE RETURNED}"
 		AttentionMessage "REDINFO" "Cannot continue further, thus no Services were created."
 		return 1
@@ -3714,7 +3714,7 @@ function CreateInternetServices() {
 		if SetObjects "CREATENETSERVICE" "${Target_GATEWAY[0]}" "${FullName}" "${InterceptIP}" "${GatewayIP}" "${InterceptCIDR}"; then
 			ServicesAddedArray=( "${SetObjectReturn##*=>}" ${ServicesAddedArray[*]} )
 		else
-			AttentionMessage "ERROR" "FAILED! Request to add Internet Service \"${FullName}\" to Gateway Endpoint \"${Target_GATEWAY[1]}\" did not complete.  See message below."
+			AttentionMessage "ERROR" "FAILED! Request to add Internet Service \"${FullName}\" to Gateway Endpoint \"${Target_GATEWAY[1]}\" did not complete. See message below."
 			echo "${SetObjectReturn:-NO MESSAGE RETURNED}"
 		fi
 	done
@@ -3734,7 +3734,7 @@ function CreateInternetServices() {
 		AttentionMessage "VALIDATED" "Successfully associated (${#AllInternetServices[*]}) Internet Services to AppWAN \"${Target_APPWANNAME[0]}\"."
 		return 0
 	else
-		AttentionMessage "ERROR" "FAILED! Request to associate all (${#AllInternetServices[*]}) Internet Services to AppWAN \"${Target_APPWANNAME[0]}\" did not complete.  See message below."
+		AttentionMessage "ERROR" "FAILED! Request to associate all (${#AllInternetServices[*]}) Internet Services to AppWAN \"${Target_APPWANNAME[0]}\" did not complete. See message below."
 		echo "${SetObjectReturn:-NO MESSAGE RETURNED}"
 		AttentionMessage "REDINFO" "Cannot continue further, thus no Services were associated to the AppWAN of this process."
 		return 1
@@ -3905,28 +3905,28 @@ function ModifyEndpointAssociations() {
 					AttentionMessage "GREENINFO" "Adding selected EndpointGroups to ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\"."
 					SetObjects "ADDENDPOINTGROUPTO${Target_ASSOCIATION[1]}" "${AllEndpointGroupsAddition[*]}" "${Target_ASSOCIATION[2]}" \
 						&& AttentionMessage "VALIDATED" "Request to add EndpointGroup(s) is complete. Actual changes may still be underway." \
-						|| (AttentionMessage "ERROR" "FAILED! Request to add EndpointGroup(s) did not complete.  See message below." \
+						|| (AttentionMessage "ERROR" "FAILED! Request to add EndpointGroup(s) did not complete. See message below." \
 							&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}")
 				fi
 				if [[ ${#AllEndpointGroupsDeletion[*]} -gt 0 ]]; then
 					AttentionMessage "GREENINFO" "Deleting selected EndpointGroups from ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\"."
 					SetObjects "DELENDPOINTGROUPFROM${Target_ASSOCIATION[1]}" "${AllEndpointGroupsDeletion[*]}" "${Target_ASSOCIATION[2]}" \
 					&& AttentionMessage "VALIDATED" "Request to delete EndpointGroup(s) is complete. Actual changes may still be underway." \
-						|| (AttentionMessage "ERROR" "FAILED! Request to delete EndpointGroup(s) did not complete.  See message below." \
+						|| (AttentionMessage "ERROR" "FAILED! Request to delete EndpointGroup(s) did not complete. See message below." \
 							&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}")
 				fi
 				if [[ ${#AllEndpointsAddition[*]} -gt 0 ]]; then
 					AttentionMessage "GREENINFO" "Adding selected Endpoints to ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\"."
 					SetObjects "ADDENDPOINTTO${Target_ASSOCIATION[1]}" "${AllEndpointsAddition[*]}" "${Target_ASSOCIATION[2]}" \
 						&& AttentionMessage "VALIDATED" "Request to add Endpoint(s) is complete. Actual changes may still be underway." \
-						|| (AttentionMessage "ERROR" "FAILED! Request to add Endpoint(s) did not complete.  See message below." \
+						|| (AttentionMessage "ERROR" "FAILED! Request to add Endpoint(s) did not complete. See message below." \
 							&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}")
 				fi
 				if [[ ${#AllEndpointsDeletion[*]} -gt 0 ]]; then
 					AttentionMessage "GREENINFO" "Deleting selected Endpoints from ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\"."
 					SetObjects "DELENDPOINTFROM${Target_ASSOCIATION[1]}" "${AllEndpointsDeletion[*]}" "${Target_ASSOCIATION[2]}" \
 					&& AttentionMessage "VALIDATED" "Request to delete Endpoint(s) is complete. Actual changes may still be underway." \
-						|| (AttentionMessage "ERROR" "FAILED! Request to delete Endpoint(s) did not complete.  See message below." \
+						|| (AttentionMessage "ERROR" "FAILED! Request to delete Endpoint(s) did not complete. See message below." \
 							&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}")
 				fi
 			else
@@ -4057,7 +4057,7 @@ function DeleteEndpoints() {
 		Target_ENDPOINT[0]="${UserResponse%%=>*}" # TYPE:::NAME
 		Target_ENDPOINT[1]="${UserResponse##*=>}" # UUID
 
-		AttentionMessage "GENERALINFO" "Validating if Endpoint \"${Target_ENDPOINT[0]}\" is allowed deletion in Network \"${Target_NETWORK[1]}\".  Just a moment..."
+		AttentionMessage "GENERALINFO" "Validating if Endpoint \"${Target_ENDPOINT[0]}\" is allowed deletion in Network \"${Target_NETWORK[1]}\". Just a moment..."
 		FilterString='*=>'"${Target_ENDPOINT[1]}"'' # Hard filter for this UUID.
 		GetObjects "SERVICES" "endpoints/${Target_ENDPOINT[1]}/services" &>/dev/null
 		if [[ $? -eq 0 ]]; then
@@ -4078,7 +4078,7 @@ function DeleteEndpoints() {
 			AttentionMessage "GREENINFO" "Endpoint \"${Target_ENDPOINT[0]}\" has been deleted."
 			return 0
 		else
-			AttentionMessage "ERROR" "Endpoint deletion failed.  Endpoint remains available."
+			AttentionMessage "ERROR" "Endpoint deletion failed. Endpoint remains available."
 			echo "MESSAGE: \"${SetObjectReturn:-NO MESSAGE RETURNED}\"."
 			sleep 5
 			return 1
@@ -4116,7 +4116,7 @@ function DeleteEndpointGroups() {
 			AttentionMessage "GREENINFO" "EndpointGroup \"${Target_ENDPOINTGROUP[0]}\" has been deleted."
 			return 0
 		else
-			AttentionMessage "ERROR" "EndpointGroup deletion failed.  EndpointGroup remains available."
+			AttentionMessage "ERROR" "EndpointGroup deletion failed. EndpointGroup remains available."
 			echo "MESSAGE: \"${SetObjectReturn:-NO MESSAGE RETURNED}\"."
 			sleep 5
 			return 1
@@ -4143,7 +4143,7 @@ function BulkCreateEndpoints() {
 				if ! SetObjects "EMAILALERT" "${StoredAttributes[0]:-ERRNOUUID}" "${Target_EMAIL[0]}" "${Target_EMAIL[1]}"; then
 
 					let OutputCounter[5]++
-					AttentionMessage "ERROR" " ┗━━Email alert transmission failed.  Endpoint remains available."
+					AttentionMessage "ERROR" " ┗━━Email alert transmission failed. Endpoint remains available."
 					echo "${SetObjectReturn:-NO MESSAGE RETURNED}"
 					echo "${Target_CONTEXT},${StoredAttributes[0]:-UUID_NA},${StoredAttributes[1]:-REGKEY\:NA},FAIL:${Target_EMAIL[0]}" >> ${OutputFile}
 
@@ -4409,7 +4409,7 @@ function BulkCreateEndpoints() {
 			# Conclude.
 			AttemptEmail
 
-		# This Endpoint failed to create.  Possibly due to already existing, or actually a true failure.
+		# This Endpoint failed to create. Possibly due to already existing, or actually a true failure.
 		else
 
 			# Do a lookup on the name and see if it can return a UUID and STATE.
@@ -4665,7 +4665,7 @@ function CreateEndpoints() {
 							if [[ ! -z ${Target_ASSOCIATION} ]]; then
 								AttentionMessage "GREENINFO" "Adding \"${Target_ENDPOINTNAME}\" to ${Target_ASSOCIATION[0]} \"${Target_ASSOCIATION[1]%%=>*}\"."
 								! SetObjects "ADDENDPOINTTO${Target_ASSOCIATION[0]}" "${SetObjectReturn##*=>}" "${Target_ASSOCIATION[1]##*=>}" \
-									&& AttentionMessage "ERROR" "Endpoint association failed.  Endpoint remains available." \
+									&& AttentionMessage "ERROR" "Endpoint association failed. Endpoint remains available." \
 									&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}" \
 									|| AttentionMessage "VALIDATED" "New Endpoint \"${Target_ENDPOINTNAME}\" added to \"${Target_ASSOCIATION[1]%%=>*}\"."
 							fi
@@ -4673,7 +4673,7 @@ function CreateEndpoints() {
 							if [[ ! -z ${Target_EMAIL[0]} ]]; then
 								AttentionMessage "GREENINFO" "Sending alert to \"${Target_EMAIL[0]}\" with information about new Endpoint \"${Target_ENDPOINTNAME}\"."
 								! SetObjects "EMAILALERT" "${Target_ENDPOINTUUID}" "${Target_EMAIL[0]}" "${Target_EMAIL[1]}" \
-									&& AttentionMessage "ERROR" "Email alert transmission failed.  Endpoint remains available." \
+									&& AttentionMessage "ERROR" "Email alert transmission failed. Endpoint remains available." \
 									&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}" \
 									|| AttentionMessage "VALIDATED" "Email alert transmission succeeded."
 							fi
@@ -4796,11 +4796,9 @@ function CheckBearerToken() {
 
 	else
 
-		GoToExit "3" "Organization lookup failed or there were no Organizations available.  Please check and try again."
+		GoToExit "3" "Organization lookup failed or there were no Organizations available. Please check and try again."
 
 	fi
-
-	AttentionMessage "GENERALINFO" "API interaction was successful."
 
 	# Release in-memory variables as required.
 	[[ ! -z ${ThisClientID} ]] \
@@ -5039,7 +5037,7 @@ function ObtainSAFE() {
 
 		OpenSAFE "${SAFEFile}" \
 			&& return 0 \
-			|| GoToExit "3" "An internal error occurred.  Please report this."
+			|| GoToExit "3" "An internal error occurred. Please report this."
 
 	fi
 }
@@ -5259,7 +5257,7 @@ function LaunchMAIN() {
 	! CheckObject "PROG" "whoami" \
 		&& GoToExit "3" "WHOAMI is a REQUIRED yet NOT INSTALLED effective user reporting utility."
 	! CheckObject "USER" "root" \
-		&& GoToExit "3" "Your current user is ROOT.  Please run this program as a non-elevated user."
+		&& GoToExit "3" "Your current user is ROOT. Please run this program as a non-elevated user."
 	! CheckObject "PROG" "tput" \
 		&& GoToExit "3" "TPUT is a REQUIRED yet NOT INSTALLED terminal window manipulation utility."
 	! CheckObject "SCWD" "$((150-$(tput cols)))" \
