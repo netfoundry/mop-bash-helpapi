@@ -4746,7 +4746,7 @@ function CheckBearerToken() {
 		AttentionMessage "GENERALINFO" "API User \"client_id (ThisClientID)\" and API Secret \"client_secret (ThisClientSecret)\" present."
 
 		# Obtained required global variables to retrieve the Bearer Token.
-		NFN_BEARER=$( \
+		NFN_BEARER[0]=$( \
 			curl -sSLm ${CURLMaxTime} -X POST -H "content-type: application/json" -H "Cache-Control: no-cache" --data "{
 					\"client_id\":\"${ThisClientID}\",
 					\"client_secret\": \"${ThisClientSecret}\",
@@ -4757,16 +4757,18 @@ function CheckBearerToken() {
 		)
 
 		# Check validity.
-		[[ ${#NFN_BEARER[0]} -ne 1052 ]] \
+		[[ ${#NFN_BEARER[0]} -lt 1000 ]] \
 			&& GoToExit "3" "API Bearer Token received from \"${APIConsole}\" did not appear to be correct." \
+			&& NFN_BEARER[0]="UNSET" \
 			|| AttentionMessage "GENERALINFO" "API Bearer Token received from \"${APIConsole}\" appears to be correct."
 
 	# Bearer Token does exist from pass in.
 	elif [[ ${NFN_BEARER[0]:-UNSET} != "UNSET" ]]; then
 
 		# Check parameters.
-		[[ ${#NFN_BEARER[0]} -ne 1052 ]] \
+		[[ ${#NFN_BEARER[0]} -lt 1000 ]] \
 			&& GoToExit "3" "API Bearer Token from pass in was not correctly formatted." \
+			&& NFN_BEARER[0]="UNSET" \
 			|| AttentionMessage "GENERALINFO" "API Bearer Token was passed in for \"${APIConsole}\"."
 
 	fi
