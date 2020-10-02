@@ -11,7 +11,7 @@ MyGitHubRAWURL='https://raw.githubusercontent.com/netfoundry/mop-bash-helpapi/ma
 #######################################################################################
 # Main Variables - Global Editable
 #######################################################################################
-BulkCreateLogRegKey="FALSE" # Tell the system how to store returned REGKEYs from creation. (TRUE=LOG , FALSE=NOLOG)
+BulkCreateLogRegKey="TRUE" # Tell the system how to store returned REGKEYs from creation. (TRUE=LOG , FALSE=NOLOG)
 MaxIdle="600" # Seconds max without a touch will trigger an exit.
 CURLMaxTime="20" # Seconds max without a response until CURL quits.
 SAFEDir="/etc/NetFoundrySAFE" # A variable that holds the location of the SAFE directory - ensure it is in a ROOT only owned directory.
@@ -4145,13 +4145,13 @@ function BulkCreateEndpoints() {
 					let OutputCounter[5]++
 					AttentionMessage "ERROR" " ┗━━Email alert transmission failed. Endpoint remains available."
 					echo "${SetObjectReturn:-NO MESSAGE RETURNED}"
-					echo "${Target_CONTEXT},${StoredAttributes[0]:-UUID_NA},${StoredAttributes[1]:-REGKEY\:NA},FAIL:${Target_EMAIL[0]}" >> ${OutputFile}
+					echo "${Target_CONTEXT},${StoredAttributes[0]:-UUID_NA},${StoredAttributes[1]:-REGKEY:NA},FAIL:${Target_EMAIL[0]}" >> ${OutputFile}
 
 				else
 
 					let OutputCounter[4]++
 					AttentionMessage "VALIDATED" " ┗━━Email alert transmission succeeded with registration information and message \"${Target_EMAIL[1]:0:75}\"."
-					echo "${Target_CONTEXT},${StoredAttributes[0]:-UUID_NA},${StoredAttributes[1]:-REGKEY\:NA},SENT:${Target_EMAIL[0]}" >> ${OutputFile}
+					echo "${Target_CONTEXT},${StoredAttributes[0]:-UUID_NA},${StoredAttributes[1]:-REGKEY:NA},SENT:${Target_EMAIL[0]}" >> ${OutputFile}
 
 				fi
 
@@ -4159,14 +4159,14 @@ function BulkCreateEndpoints() {
 
 				let OutputCounter[5]++
 				AttentionMessage "ERROR" " ┗━━Email alert transmission failed due to badly formed address. Endpoint remains available."
-				echo "${Target_CONTEXT},${StoredAttributes[0]:-UUID_NA},${StoredAttributes[1]:-REGKEY\:NA},BADEMAIL:${Target_EMAIL[0]}" >> ${OutputFile}
+				echo "${Target_CONTEXT},${StoredAttributes[0]:-UUID_NA},${StoredAttributes[1]:-REGKEY:NA},BADEMAIL:${Target_EMAIL[0]}" >> ${OutputFile}
 
 			fi
 
 		else
 
 			AttentionMessage "GREENINFO" " ┗━━Email alert not required."
-			echo "${Target_CONTEXT},${StoredAttributes[0]:-UUID_NA},${StoredAttributes[1]:-REGKEY\:NA},NOEMAIL" >> ${OutputFile}
+			echo "${Target_CONTEXT},${StoredAttributes[0]:-UUID_NA},${StoredAttributes[1]:-REGKEY:NA},NOEMAIL" >> ${OutputFile}
 
 		fi
 	}
@@ -4441,7 +4441,7 @@ function BulkCreateEndpoints() {
 				fi
 
 				# A state of any except 200/300 indicates the Endpoint is not registered.
-				if [[ ${StoredAttributes[2]} -ne 200 ]] || [[ ${StoredAttributes[2]} -ne 300 ]]; then
+				if [[ ${StoredAttributes[2]} -ne 200 ]] && [[ ${StoredAttributes[2]} -ne 300 ]]; then
 
 					AttentionMessage "YELLOWINFO" " ┣━━Endpoint exists (STATE=${StoredAttributes[2]}), but has not registered yet."
 					BulkExportVar="${BulkExportVar}${NewLine}${InputLine}"
