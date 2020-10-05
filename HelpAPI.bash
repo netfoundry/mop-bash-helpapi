@@ -1555,7 +1555,8 @@ function GetObjects() {
 			if ProcessResponse "${GETSyntax}" "${APIRESTURL}/networks/${Target_NETWORK[0]}/endpoints" "200"; then
 
 				# Gather all objects which match one of the following in order of check A) FilterString=OnlyIfFollowed B) PrimaryFilterString=OnlyFirstList
-				# [1/2/3/X]00:::[REGISTRATIONKEY]=>[UUID]
+				# [1/2/3/X]00:::[REG_ATTEMPTS_LEFT]:::[REGISTRATIONKEY]=>[UUID]
+				#  STATUS = 100:NEW, 200:PROVISIONING, 300:PROVISIONED, 400:REGISTERED, 500:ERROR, 600:UPDATING, 700:REPLACING, 800:DELETING, 900:DELETED
 				AllEndpoints=( \
 					$(echo "${OutputJSON}" \
 						| jq -r '
@@ -1563,7 +1564,7 @@ function GetObjects() {
 							| ._embedded.endpoints
 							| .[]
 							| select(.name == "'${FilterString:-${PrimaryFilterString:-.}}'")
-							| (.currentState | tostring) + ":::" + .registrationKey + "=>" + (._links.self.href | split("/"))[-1]
+							| (.status | tostring) + ":::" + (.registrationAttemptsLeft | tostring) + ":::" + .registrationKey + "=>" + (._links.self.href | split("/"))[-1]
 						'
 					)
 				)
@@ -4428,22 +4429,19 @@ function BulkCreateEndpoints() {
 			# If the GetObject returns true, then this is not a failure as the Endpoint exists already.
 			else
 
-				let OutputCounter[2]++ # Increment the success counter.
 				StoredAttributes[0]="${AllEndpoints##*=>}" # 0/ENDPOINT_UUID.
-				StoredAttributes[2]="${AllEndpoints%%:::*}" # 2/STATE.
+				StoredAttributes[1]="${AllEndpoints%:::*}" # 1/STATE:::REG_ATTEMPTS_LEFT.
+				StoredAttributes[2]="${AllEndpoints##*:::}" # 2/REGISTRATION_KEY.
 
 				# Determine how to treat the returned registration key.
-				if [[ ${BulkCreateLogRegKey:-FALSE} == "TRUE" ]]; then
-					StoredAttributes[1]="${AllEndpoints%%=>*}" # 1/STATE:::REGISTRATION_KEY.
-					StoredAttributes[1]="${StoredAttributes[1]##*:::}" # 1/REGISTRATION_KEY.
-				else
-					StoredAttributes[1]="REGKEY:REDACTED" # 1/REGISTRATION_KEY.
-				fi
+				[[ ${BulkCreateLogRegKey:-FALSE} != "TRUE" ]] \
+					&& StoredAttributes[2]="REGKEY:REDACTED" # 2/REGISTRATION_KEY.
 
-				# A state of any except 200/300 indicates the Endpoint is not registered.
-				if [[ ${StoredAttributes[2]} -ne 200 ]] && [[ ${StoredAttributes[2]} -ne 300 ]]; then
+				# A state of any except 400 indicates the Endpoint is not registered.
+				if [[ ${StoredAttributes[1]%:::*} -ne 400 ]] && [[ ${StoredAttributes[1]#*:::} -gt 0 ]]; then
 
-					AttentionMessage "YELLOWINFO" " ┣━━Endpoint exists (STATE=${StoredAttributes[2]}), but has not registered yet."
+					let OutputCounter[2]++ # Increment the success counter.
+					AttentionMessage "YELLOWINFO" " ┣━━Endpoint exists but has not registered yet. (STATE=${StoredAttributes[1]%:::*} | ATTEMPTS LEFT=${StoredAttributes[1]#*:::})"
 					BulkExportVar="${BulkExportVar}${NewLine}${InputLine}"
 
 					# Attempt to add to an AppWAN before conclusion?
@@ -4485,9 +4483,17 @@ function BulkCreateEndpoints() {
 					# Conclude.
 					AttemptEmail
 
+				# Registration attempts equal to zero indicate the user cannot register anymore.
+				elif [[ ${StoredAttributes[1]%:::*} -ne 400 ]] && [[ ${StoredAttributes[1]#*:::} -eq 0 ]]; then
+
+					let OutputCounter[3]++
+					AttentionMessage "ERROR" " ┗━━Endpoint exists but has not registered yet and has run out of attempts. (STATE=${StoredAttributes[1]%:::*}) | ATTEMPTS LEFT=${StoredAttributes[1]#*:::})"
+					echo "$(date +'%s'),${Target_ENDPOINTNAME},${Target_ENDPOINTTYPE},${Target_NETWORK},${Target_GEOREGION},${StoredAttributes[0]:-UUID_NA},NO_ATTEMPTS_LEFT:${StoredAttributes[1]:-REGKEY:NA},EMAIL:${Target_EMAIL[0]}" >> ${OutputFile}
+					BulkExportVar="${BulkExportVar}${NewLine}${InputLine}"
+
 				else
 
-					AttentionMessage "VALIDATED" " ┗━Endpoint \"${Target_ENDPOINTNAME}\" exists (STATE=${StoredAttributes[2]}), and is registered. No further action taken."
+					AttentionMessage "VALIDATED" " ┗━Endpoint \"${Target_ENDPOINTNAME}\" exists and is registered. No further action taken. (STATE=${StoredAttributes[2]})"
 					let OutputCounter[10]++ # Increment the registered counter.
 					BulkExportVar="${BulkExportVar}${NewLine}# VALIDATED_${TimeCapture[0]} #${InputLine}"
 
@@ -4508,7 +4514,7 @@ function BulkCreateEndpoints() {
 	if [[ $((${OutputCounter[1]})) -ge 1 ]]; then
 		echo " ┣━CREATE SUCCESS:    ${OutputCounter[2]} ($(((${OutputCounter[2]}*100)/${OutputCounter[1]}))%)"
 		echo " ┣━━REGISTERED:       ${OutputCounter[10]:-0} ($(((${OutputCounter[10]:-0}*100)/${OutputCounter[1]}))%)"
-		echo " ┣━━CREATE FAIL:      ${OutputCounter[3]} ($(((${OutputCounter[3]}*100)/${OutputCounter[1]}))%)"
+		echo " ┣━━CREATE/REG FAIL:  ${OutputCounter[3]} ($(((${OutputCounter[3]}*100)/${OutputCounter[1]}))%)"
 	fi
 	if [[ $((${OutputCounter[6]}+${OutputCounter[7]})) -ge 1 ]]; then
 		echo " ┣━GROUP-ADD SUCCESS: ${OutputCounter[6]} ($(((${OutputCounter[6]}*100)/(${OutputCounter[6]}+${OutputCounter[7]})))%)"
