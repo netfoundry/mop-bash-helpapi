@@ -11,7 +11,7 @@ MyGitHubRAWURL='https://raw.githubusercontent.com/netfoundry/mop-bash-helpapi/ma
 #######################################################################################
 # Main Variables - Global Editable
 #######################################################################################
-BulkCreateLogRegKey="TRUE" # Tell the system how to store returned REGKEYs from creation. (TRUE=LOG , FALSE=NOLOG)
+BulkCreateLogRegKey="FALSE" # Tell the system how to store returned REGKEYs from creation. (TRUE=LOG , FALSE=NOLOG)
 MaxIdle="600" # Seconds max without a touch will trigger an exit.
 CURLMaxTime="20" # Seconds max without a response until CURL quits.
 SAFEDir="/etc/NetFoundrySAFE" # A variable that holds the location of the SAFE directory - ensure it is in a ROOT only owned directory.
@@ -4307,13 +4307,13 @@ function BulkCreateEndpoints() {
 		DeconstructLine "PARSECHECKONLY" # RC#0=VALID_PRINT, RC#1=INVALID_PRINT, RC#2=VALID,PRINT, RC#3=VALID,NOPRINT
 		case $? in
 			0) printf "%-40.40s %-12s %-15s %-15s %-28s %-28s %-35.35s %-15.15s\n" \
-				"${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "...${Target_NETWORK: -5}" "...${Target_GEOREGION: -5}" "${AllEndpointGroupsShort[*]}" "${AllAppWANsShort[*]}" "${Target_EMAIL[0]/,*/ ++}" "${Target_EMAIL[1]}"
+				"${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "...${Target_NETWORK: -5}" "...${Target_GEOREGION: -5}" "${AllEndpointGroupsShort[*]}" "${AllAppWANsShort[*]}" "${Target_EMAIL[0]/,*/ ++}" "${Target_EMAIL[1]:0:12}..."
 				;;
 			1) printf "\e[${FRed}m%-40.40s\e[1;${Normal}m %-12s %-15s %-15s %-28s %-28s %-35.35s %-15.15s\n" \
-				"${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "...${Target_NETWORK: -5}" "...${Target_GEOREGION: -5}" "${AllEndpointGroupsShort[*]}" "${AllAppWANsShort[*]}" "${Target_EMAIL[0]/,*/ ++}" "${Target_EMAIL[1]}"
+				"${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "...${Target_NETWORK: -5}" "...${Target_GEOREGION: -5}" "${AllEndpointGroupsShort[*]}" "${AllAppWANsShort[*]}" "${Target_EMAIL[0]/,*/ ++}" "${Target_EMAIL[1]:0:12}..."
 				;;
 			2) printf "\e[${FGreen}m%-40.40s\e[1;${Normal}m %-12s %-15s %-15s %-28s %-28s %-35.35s %-15.15s\n" \
-				"${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "...${Target_NETWORK: -5}" "...${Target_GEOREGION: -5}" "${AllEndpointGroupsShort[*]}" "${AllAppWANsShort[*]}" "${Target_EMAIL[0]/,*/ ++}" "${Target_EMAIL[1]}"
+				"${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "...${Target_NETWORK: -5}" "...${Target_GEOREGION: -5}" "${AllEndpointGroupsShort[*]}" "${AllAppWANsShort[*]}" "${Target_EMAIL[0]/,*/ ++}" "${Target_EMAIL[1]:0:12}..."
 				;;
 		esac
 	done
