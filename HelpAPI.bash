@@ -5056,20 +5056,21 @@ function ObtainSAFE() {
 #################################################################################
 # Usage and help menu.
 function GeneralHelp() {
-	echo "${MyName[0]} -h/-H    ::: This Usage and Help Menu."
-	echo "${MyName[0]} -X       ::: Use Local Package Manager - Install All Required Programs."
-	echo "${MyName[0]}          ::: All Defaults (Interactive SAFE Select, Enable Text Decoration, Interactive Mode)"
-	echo "${MyName[0]} -S       ::: Begin with Interactive Secure Authenticated File Enclave (SAFE) Select. [DEFAULT]"
-	echo "${MyName[0]} -s [FILE]::: Begin with PreSelected Secure Authenticated File Enclave (SAFE)."
-	echo "${MyName[0]} -P       ::: Enable Text Decoration. [DEFAULT]"
-	echo "${MyName[0]} -p       ::: Limit Text Decoration."
-	echo "${MyName[0]} -T       ::: Include Teaching Information."
-	echo "${MyName[0]} -I       ::: Interactive Mode. [DEFAULT]"
-	echo "${MyName[0]} -B [FILE]::: Bulk Endpoint Creation Mode. Applies [-L]."
-	echo "${MyName[0]} -b       ::: Bulk Endpoint Creation Sub-Usage and Help Menu."
-	echo "${MyName[0]} -D       ::: Enable Debug Messages."
-	echo "${MyName[0]} -q       ::: Quieter Printing Mode."
-	echo "${MyName[0]} -C [????]::: Point API Access towards [production/staging]. [default=production]"
+	echo "${MyName[0]} -h/-H     ::: This Usage and Help Menu."
+	echo "${MyName[0]} -X        ::: Use Local Package Manager - Install All Required Programs."
+	echo "${MyName[0]}           ::: All Defaults (Interactive SAFE Select, Enable Text Decoration, Interactive Mode)"
+	echo "${MyName[0]} -S        ::: Begin with Interactive Secure Authenticated File Enclave (SAFE) Select. [DEFAULT]"
+	echo "${MyName[0]} -s [FILE] ::: Begin with PreSelected Secure Authenticated File Enclave (SAFE)."
+	echo "${MyName[0]} -P        ::: Enable Text Decoration. [DEFAULT]"
+	echo "${MyName[0]} -p        ::: Limit Text Decoration."
+	echo "${MyName[0]} -t [TOKEN]::: Instead of a SAFE, user provides the BEARER token for the session.."
+	echo "${MyName[0]} -T        ::: Include Teaching Information."
+	echo "${MyName[0]} -I        ::: Interactive Mode. [DEFAULT]"
+	echo "${MyName[0]} -B [FILE] ::: Bulk Endpoint Creation Mode. Applies [-L]."
+	echo "${MyName[0]} -b        ::: Bulk Endpoint Creation Sub-Usage and Help Menu."
+	echo "${MyName[0]} -D        ::: Enable Debug Messages."
+	echo "${MyName[0]} -q        ::: Quiet(er) Printing Mode."
+	echo "${MyName[0]} -C [????] ::: Point API Access towards [production/staging]. [default=production]"
 	echo
 }
 
