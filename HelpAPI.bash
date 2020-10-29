@@ -5085,8 +5085,8 @@ function AutoInstallPackages() {
 
 		# Check for existence.
 		for EachPkgMgr in ${OSInfo[*]}; do
-			if CheckObject "FILE" "${EachPkgMgr%:::*}" "QUIET"; then
-				if CheckObject "PROG" "${EachPkgMgr#*:::}" "QUIET"; then
+			if CheckObject "FILE" "${EachPkgMgr%:::*}" "NOPRINT"; then
+				if CheckObject "PROG" "${EachPkgMgr#*:::}" "NOPRINT"; then
 					echo "INSTALLED:::${EachPkgMgr#*:::}"
 					return 0
 				else
@@ -5097,8 +5097,8 @@ function AutoInstallPackages() {
 		done
 
 		# MacOS is a special case.
-		if CheckObject "ENV-s" "Darwin" "QUIET"; then
-			if CheckObject "PROG" "brew" "QUIET"; then
+		if CheckObject "ENV-s" "Darwin" "NOPRINT"; then
+			if CheckObject "PROG" "brew" "NOPRINT"; then
 				echo "INSTALLED:::brew"
 				return 0
 			else
@@ -5179,7 +5179,7 @@ function CheckingChain() {
 		&& GoToExit "3" "BC is a REQUIRED yet NOT INSTALLED utility to enhance calculations of floating point numbers."
 
 	# Checking Chain - Secondary Critical - Specific to MacOS and BREW.
-	if CheckObject "ENV-s" "Darwin"; then
+	if CheckObject "ENV-s" "Darwin" "NOPRINT"; then
 		! CheckObject "FILE" "/usr/local/bin/gdate" \
 			&& GoToExit "3" "GDATE is a REQUIRED yet NOT INSTALLED MACOS utility to get/set the current time and date." \
 			|| alias date=/usr/local/bin/gdate # GDATE is required vs BSD DATE on MACOS.
