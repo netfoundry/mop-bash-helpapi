@@ -11,6 +11,7 @@ MyGitHubRAWURL='https://raw.githubusercontent.com/netfoundry/mop-bash-helpapi/ma
 #######################################################################################
 # Main Variables - Global Editable
 #######################################################################################
+CheckGITVersion="TRUE" # A flag to check the GIT version available and alert the user if the runtime is a different version than it. (TRUE=CHECK , FALSE=BYPASS)
 BulkCreateLogRegKey="FALSE" # Tell the system how to store returned REGKEYs from creation. (TRUE=LOG , FALSE=NOLOG)
 MaxIdle="600" # Seconds max without a touch will trigger an exit.
 CURLMaxTime="20" # Seconds max without a response until CURL quits.
@@ -29,15 +30,15 @@ TmpDir="/tmp" # The temporary directory this program will use.
 APIConsole="production"
 TeachMode="FALSE" # A special flag that allows emit of certain messages.
 DebugInfo="FALSE" # A special flag that shows extra data from the API system.
-Normal="0" Bold="1" Dimmed="2" Invert="7" # Trigger codes for BASH.
-FBlack="30" FRed="31" FGreen="32" FYellow="33" FBlue="34" FMagenta="35" FCyan="36" FLiteGray="37" # Foreground color codes for BASH.
-FDarkGray="90" FLiteRed="91" FLiteGreen="92" FLiteYellow="93" FLiteBlue="94" FLiteMagenta="95" FLiteCyan="96" FWhite="37" # Foreground color codes for BASH.
-BBlack="40" BRed="41" BGreen="42" BYellow="43" BBlue="44" BMagenta="45" BCyan="46" BLiteGray="47" # Background color codes for BASH.
-BDarkGray="100" BLiteRed="101" BLiteGreen="102" BLiteYellow="103" BLiteBlue="104" BLiteMagenta="105" BLiteCyan="106" BWhite="107" # Background color codes for BASH.
-ValidIP="(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)" # REGEX to match IPv4 addresses.
-ValidPrefix="(3[01]|[12][0-9]|[1-9])" # A REGEX string to match a valid CIDR number.
-ValidNumber="^[0-9]+$"
-AlphaArray=( $(echo {A..Z}) ) # A shell expansion into an array for all letters in the English alphabet (A-Z).
+export Normal="0" Bold="1" Dimmed="2" Invert="7" # Trigger codes for BASH.
+export FBlack="30" FRed="31" FGreen="32" FYellow="33" FBlue="34" FMagenta="35" FCyan="36" FLiteGray="37" # Foreground color codes for BASH.
+export FDarkGray="90" FLiteRed="91" FLiteGreen="92" FLiteYellow="93" FLiteBlue="94" FLiteMagenta="95" FLiteCyan="96" FWhite="37" # Foreground color codes for BASH.
+export BBlack="40" BRed="41" BGreen="42" BYellow="43" BBlue="44" BMagenta="45" BCyan="46" BLiteGray="47" # Background color codes for BASH.
+export BDarkGray="100" BLiteRed="101" BLiteGreen="102" BLiteYellow="103" BLiteBlue="104" BLiteMagenta="105" BLiteCyan="106" BWhite="107" # Background color codes for BASH.
+export ValidIP="(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)" # REGEX to match IPv4 addresses.
+export ValidPrefix="(3[01]|[12][0-9]|[1-9])" # A REGEX string to match a valid CIDR number.
+export ValidNumber="^[0-9]+$"
+export AlphaArray=( A B C D E F G H I J K L M N O P Q R S T U V W X Y Z ) # All letters in the English alphabet (A-Z).
 LastText="" # A storage variable for the last context string sent into the printer function.
 CurrentPath="/" # A storage variable for the path in the program - a breadcrumb trail.
 LimitFancy="FALSE" # A flag that hold whether the program can output certain screen effects.
@@ -54,13 +55,13 @@ NewLine='
 #######################################################################################
 #################################################################################
 # Exit trapping.
-trap "GoToExit 2" SIGINT SIGTERM SIGKILL
-trap "GoToExit 5" SIGHUP
-trap "GoToExit 6 \"Your session timed out after ($((${MaxIdle}/60))m) of inactivity. (PARENTPID=${ParentPID:-ORPHAN})\"" USR1
+trap 'GoToExit 2' SIGINT SIGTERM
+trap 'GoToExit 5' SIGHUP
+trap 'GoToExit 6 "Your session timed out after ($((MaxIdle/60))m) of inactivity. (PARENTPID=${ParentPID:-ORPHAN})"' USR1
 function GoToExit() {
 	# 1/[0=NOERROR 1=NEGATIVE 2=USEREXITCTRLC 3=CRITICALEXIT 4=NOERRORNONINTERATIVE 5=FASTQUIT 6=TIMEOUT 7=AUTOMATIONDONE 8=QUITLEAVEBEARER 9(+)=OTHER] 2/MESSAGE
 	local ControlOptions
-	trap "" SIGINT SIGTERM SIGKILL # Ignore CTRL+C events.
+	trap '' SIGINT SIGTERM # Ignore CTRL+C events.
 	tput cnorm # Ensure cursor is visible.
 
 	# The user pressed CTRL+C.
@@ -138,8 +139,7 @@ function GoToExit() {
 				"Toggle Debug Messaging")
 					AttentionMessage "GREENINFO" "Debug Messaging will help you ascertain API interaction errors by showing return headers."
 					AttentionMessage "GREENINFO" "Debug Messaging is currently set to \"${DebugInfo}\"."
-					GetYorN "Toggle the Messaging?" "Yes"
-					if [[ $? -eq 0 ]]; then
+					if GetYorN "Toggle the Messaging?" "Yes"; then
 						if [[ ${DebugInfo} == "TRUE" ]]; then
 							DebugInfo="FALSE"
 							AttentionMessage "GREENINFO" "Debug Messaging was disabled."
@@ -155,8 +155,7 @@ function GoToExit() {
 				"Toggle Teaching Mode")
 					AttentionMessage "GREENINFO" "Teaching Mode shows you how to call the NetFoundry API for a given interaction."
 					AttentionMessage "GREENINFO" "Teaching Mode is currently set to \"${TeachMode}\"."
-					GetYorN "Toggle the Mode?" "Yes"
-					if [[ $? -eq 0 ]]; then
+					if GetYorN "Toggle the Mode?" "Yes"; then
 						if [[ ${TeachMode} == "TRUE" ]]; then
 							TeachMode="FALSE"
 							AttentionMessage "GREENINFO" "Teaching Mode was disabled."
@@ -176,20 +175,20 @@ function GoToExit() {
 		AttentionMessage "GREENINFO" "Now returning to normal operation."
 		sleep 2
 		tput rmcup # Return screen contents.
-		trap "GoToExit 2" SIGINT SIGTERM SIGKILL # Reset CTRL+C events.
+		trap 'GoToExit 2' SIGINT SIGTERM # Reset CTRL+C events.
 
 	elif [[ "${1}" -eq 4 ]]; then
 
 		reset
 		FancyPrint "PLAINLOGO"
-		[[ ! -z "${2}" ]] \
+		[[ -n "${2}" ]] \
 			&& AttentionMessage "ERROR" "${2}"
 		DestroyBearerToken \
 			|| AttentionMessage "ERROR" "Your Bearer Token could not be destroyed."
 		AttentionMessage "GENERALINFO" "REMINDER, never leave your credentials saved on the device or held in buffer in an open window."
-		AttentionMessage "GREENINFO" "Exiting. [RunTime=$((${SECONDS}/60))m $((${SECONDS}%60))s]"
+		AttentionMessage "GREENINFO" "Exiting. [RunTime=$((SECONDS/60))m $((SECONDS%60))s]"
 		TrackLastTouch "DIE"
-		[[ ! -z "${2}" ]] \
+		[[ -n "${2}" ]] \
 			&& exit ${1} \
 			|| exit 0
 
@@ -203,14 +202,14 @@ function GoToExit() {
 	elif [[ "${1}" -eq 7 ]]; then
 
 		FancyPrint "PLAINLOGO"
-		[[ ! -z "${2}" ]] \
+		[[ -n "${2}" ]] \
 			&& AttentionMessage "ERROR" "${2}"
 		DestroyBearerToken \
 			|| AttentionMessage "ERROR" "Your Bearer Token could not be destroyed."
 		AttentionMessage "GENERALINFO" "REMINDER, never leave your credentials saved on the device or held in buffer in an open window."
-		AttentionMessage "GREENINFO" "Exiting. [RunTime=$((${SECONDS}/60))m $((${SECONDS}%60))s]"
+		AttentionMessage "GREENINFO" "Exiting. [RunTime=$((SECONDS/60))m $((SECONDS%60))s]"
 		TrackLastTouch "DIE"
-		[[ ! -z "${2}" ]] \
+		[[ -n "${2}" ]] \
 			&& exit ${1} \
 			|| exit 0
 
@@ -218,9 +217,9 @@ function GoToExit() {
 
 		FancyPrint "PLAINLOGO"
 		AttentionMessage "REDINFO" "Please be aware that your Bearer Token persists as shown below."
-		echo ${NFN_BEARER[0]:-UNSET}
+		echo "${NFN_BEARER[0]:-UNSET}"
 		AttentionMessage "GENERALINFO" "REMINDER, never leave your credentials saved on the device or held in buffer in an open window."
-		AttentionMessage "GREENINFO" "Exiting. [RunTime=$((${SECONDS}/60))m $((${SECONDS}%60))s]"
+		AttentionMessage "GREENINFO" "Exiting. [RunTime=$((SECONDS/60))m $((SECONDS%60))s]"
 		TrackLastTouch "DIE"
 		exit 0
 
@@ -228,14 +227,14 @@ function GoToExit() {
 
 		reset
 		FancyPrint "EXITLOGO"
-		[[ ! -z "${2}" ]] \
+		[[ -n "${2}" ]] \
 			&& AttentionMessage "ERROR" "${2}"
 		DestroyBearerToken \
 			|| AttentionMessage "ERROR" "Your Bearer Token could not be destroyed."
 		AttentionMessage "GENERALINFO" "REMINDER, never leave your credentials saved on the device or held in buffer in an open window."
-		AttentionMessage "GREENINFO" "Exiting. [RunTime=$((${SECONDS}/60))m $((${SECONDS}%60))s]"
+		AttentionMessage "GREENINFO" "Exiting. [RunTime=$((SECONDS/60))m $((SECONDS%60))s]"
 		TrackLastTouch "DIE"
-		exit ${1:-0}
+		exit "${1:-0}"
 
 	fi
 }
@@ -273,7 +272,7 @@ function ClearLines() {
 		ClearLines=$(GetLines)
 		tput el1 # Delete to the beginning of the current line.
 		# For each line going up to clear, do this.
-		for ((i=1;i<=${ClearLines};i++)); do
+		for ((i=1;i<=ClearLines;i++)); do
 			tput cuu1 # Go up one line.
 			tput el # Delete the contents of this line.
 			sleep 0.01 # Wait.
@@ -287,7 +286,7 @@ function ClearLines() {
 	elif [[ ${ClearLines} =~ ${NumberRE} ]]; then
 
 		# For each line going up to clear, do this.
-		for ((i=1;i<=${ClearLines};i++)); do
+		for ((i=1;i<=ClearLines;i++)); do
 			tput cuu1 # Go up one line.
 			tput el # Delete the contents of this line.
 		done
@@ -325,15 +324,15 @@ function TrackLastTouch() {
 				sleep 5
 				read -t 1 <>${TmpDir}/FIFO-${ParentPID:-ORPHAN}.pipe LastTouchSECONDS 2>/dev/null \
 					|| AttentionMessage "CRITICAL" "Could not ascertain \"LastTouchSECONDS\" from \"${TmpDir}/FIFO-${ParentPID:-ORPHAN}.pipe\"."
-				if [[ $((${MaxIdle}-(${SECONDS}-${LastTouchSECONDS:-0}))) -le 0 ]]; then
+				if [[ $((MaxIdle-(SECONDS-LastTouchSECONDS))) -le 0 ]]; then
 					# Tell the parent to shutdown and break out of the local loop which will shutdown this thread too.
 					kill -USR1 ${ParentPID} &>/dev/null
 					rm -f ${TmpDir}/FIFO-${ParentPID:-ORPHAN}.pipe
 					break
-				elif [[ $((${MaxIdle}-(${SECONDS}-${LastTouchSECONDS:-0}))) -le 60 ]] && [[ $((${MaxIdle}-(${SECONDS}-${LastTouchSECONDS:-0}))) -gt 0 ]]; then
+				elif [[ $((MaxIdle-(SECONDS-LastTouchSECONDS))) -le 60 ]] && [[ $((MaxIdle-(SECONDS-LastTouchSECONDS))) -gt 0 ]]; then
 					tput sc
 					tput cup 0 $(($(tput cols)-28))
-					printf "\e[${Invert};${FRed};${BBlack}m%-21s %3s\e[1;${Normal}m" "IDLE TIMEOUT WARNING:" "$((${MaxIdle}-(${SECONDS}-${LastTouchSECONDS:-0})))s"
+					printf "\e[${Invert};${FRed};${BBlack}m%-21s %3s\e[1;${Normal}m" "IDLE TIMEOUT WARNING:" "$((MaxIdle-(SECONDS-LastTouchSECONDS)))s"
 					tput rc
 					sleep 1
 				fi
@@ -357,8 +356,8 @@ function SetLimitFancy() {
 
 	elif [[ ${1} == "FALSE" ]]; then
 
-		# A specifi OS check.
-		CheckObject "ENV-v" "Microsoft" \
+		# A specific OS check.
+		CheckObject "ENV-v" "Microsoft" "NOPRINT" \
 			&& SetLimitFancy "WSL" \
 			&& return 0
 
@@ -367,8 +366,8 @@ function SetLimitFancy() {
 
 	elif [[ ${1} == "TRUE" ]]; then
 
-		# A specifi OS check.
-		CheckObject "ENV-v" "Microsoft" \
+		# A specific OS check.
+		CheckObject "ENV-v" "Microsoft" "NOPRINT" \
 			&& SetLimitFancy "WSL" \
 			&& return 0
 
@@ -410,10 +409,10 @@ function AttentionMessage() {
 	local OutputColor SubCommentText SpecialSyntaxAdder
 
 	# Update the idle tracker.
-	[[ ${InputHead} != "TIMEWARNING" ]] \
+	[[ ${InputHead[0]} != "TIMEWARNING" ]] \
 		&& TrackLastTouch "UPDATE"
 
-	case ${InputHead} in
+	case ${InputHead[0]} in
 		# Something of interest.
 		"GENERALINFO"|"GREENINFO")
 			# If in QUIET mode, just return.
@@ -482,11 +481,11 @@ function AttentionMessage() {
 
 	# This output mode means that the text was repeated. Do not apply decoration if so.
 	if [[ "${CommentText}" == "${LastText}" ]]; then
-		printf "\e[${OutputColor}m| %-$((1+${SpecialSyntaxAdder}))b %-10s |\e[1;${Normal}m " "${InputHead[1]}" "${InputHead[0]}"
+		printf "\e[${OutputColor}m| %-$((1+SpecialSyntaxAdder))b %-10s |\e[1;${Normal}m " "${InputHead[1]}" "${InputHead[0]}"
 		FancyPrint "${CommentText}" "0" "0"
 	# This output mode means that output should abide by original intent to apply decoration.
 	else
-		printf "\e[${OutputColor}m| %-$((1+${SpecialSyntaxAdder}))b %-10s |\e[1;${Normal}m " "${InputHead[1]}" "${InputHead[0]}"
+		printf "\e[${OutputColor}m| %-$((1+SpecialSyntaxAdder))b %-10s |\e[1;${Normal}m " "${InputHead[1]}" "${InputHead[0]}"
 		FancyPrint "${CommentText}" "5" "1"
 	fi
 
@@ -525,7 +524,7 @@ function PrintHelper() {
 				echo "PUSH${FDarkGray}"
 			;;
 			"STATUS")
-				echo "PUSH${FGray}"
+				echo "PUSH${FLiteGray}"
 			;;
 			"UNKNOWN"|"ERROR"|"ALERT")
 				echo "${Invert};${FRed};${BBlack}"
@@ -570,8 +569,8 @@ function PrintHelper() {
 	local PrintType="${1}"
 	local IFS=$' \t\n'
 	local PadBlankField="                              " # 30 blanks for padding purposes.
-	local PadDotField=".............................." # 30 dots for padding purposes.
-	local PadDashField="------------------------------" # 30 dashes for padding purposes.
+	#local PadDotField=".............................." # 30 dots for padding purposes.
+	#local PadDashField="------------------------------" # 30 dashes for padding purposes.
 
 
 	# The BoxTopic.
@@ -586,7 +585,7 @@ function PrintHelper() {
 		BoxSubTopic=""
 		StrU8DiffLen "${BoxTopic}"
 		SpecialSyntaxAdder="$?"
-		PrintSyntax="\e[${BoxTopicColor}m%-$((34+${SpecialSyntaxAdder}))s\e[${Normal}m%0s" # 34=34 Spaces Used.
+		PrintSyntax="\e[${BoxTopicColor}m%-$((34+SpecialSyntaxAdder))s\e[${Normal}m%0s" # 34=34 Spaces Used.
 
 	else
 
@@ -604,10 +603,10 @@ function PrintHelper() {
 			|| BoxSubTopic="${BoxSubTopic}${PadBlankField:0:$((26-((26+${#BoxSubTopic})/2)))}"
 		StrU8DiffLen "${BoxTopic}"
 		SpecialSyntaxAdder="$?"
-		PrintSyntax="%-$((7+${SpecialSyntaxAdder}))s"
+		PrintSyntax="%-$((7+SpecialSyntaxAdder))s"
 		StrU8DiffLen "${BoxSubTopic}"
 		SpecialSyntaxAdder="$?"
-		PrintSyntax="${PrintSyntax} \e[${BoxSubTopicColor}m%$((26+${SpecialSyntaxAdder}))s\e[${Normal}m" # 7+1Pad+26=34 Spaces Used.
+		PrintSyntax="${PrintSyntax} \e[${BoxSubTopicColor}m%$((26+SpecialSyntaxAdder))s\e[${Normal}m" # 7+1Pad+26=34 Spaces Used.
 
 	fi
 
@@ -633,7 +632,7 @@ function PrintHelper() {
 			BoxDetail[${i}]="${BoxDetail[${i}]:0:$((((100-(100%(${#BoxDetail[*]}-1)))-(${#BoxDetail[*]})-1)/${#BoxDetail[*]}))}" # TEXT (AVAILABLE-(Items-1))/Items
 			StrU8DiffLen "${BoxDetail[${i}]}"
 			SpecialSyntaxAdder="$?"
-			PrintSyntax="${PrintSyntax}\e[${BoxDetailColor}m%$(((((100-(100%(${#BoxDetail[*]}-1)))-(${#BoxDetail[*]}-1))/${#BoxDetail[*]})+${SpecialSyntaxAdder}))s\e[${Normal}m"
+			PrintSyntax="${PrintSyntax}\e[${BoxDetailColor}m%$(((((100-(100%(${#BoxDetail[*]}-1)))-(${#BoxDetail[*]}-1))/${#BoxDetail[*]})+SpecialSyntaxAdder))s\e[${Normal}m"
 			[[ ${i} -lt $((${#BoxDetail[*]}-1)) ]] \
 				&& PrintSyntax="${PrintSyntax} " # Add the 1Pad on the inner Items.
 		done
@@ -642,10 +641,10 @@ function PrintHelper() {
 	elif [[ ${BoxTrail:-UNSET} == "UNSET" ]]; then
 
 		# There are a total of 100 Spaces available.
-		BoxDetail="${BoxDetail:0:100}" # TEXT (only the first 100 characters)
-		StrU8DiffLen "${BoxDetail}"
+		BoxDetail=( "${BoxDetail:0:100}" ) # TEXT (only the first 100 characters)
+		StrU8DiffLen "${BoxDetail[0]}"
 		SpecialSyntaxAdder="$?"
-		PrintSyntax="${PrintSyntax} \e[${BoxDetailColor}m%-$((100+${SpecialSyntaxAdder}))s\e[${Normal}m"
+		PrintSyntax="${PrintSyntax} \e[${BoxDetailColor}m%-$((100+SpecialSyntaxAdder))s\e[${Normal}m"
 		BoxTrail="" # Ensure BoxTrail is empty.
 		PrintSyntax="${PrintSyntax}%0s" # Ensure PrintSyntax[4] will not print.
 
@@ -653,15 +652,15 @@ function PrintHelper() {
 	else
 
 		# There is a total of (100-1) 99 Spaces available.
-		BoxDetail="${BoxDetail:0:63}" # TEXT (only the first 63 characters)
-		StrU8DiffLen "${BoxDetail}"
+		BoxDetail=( "${BoxDetail:0:63}" ) # TEXT (only the first 63 characters)
+		StrU8DiffLen "${BoxDetail[0]}"
 		SpecialSyntaxAdder="$?"
-		PrintSyntax="${PrintSyntax} \e[${BoxDetailColor}m%-$((63+${SpecialSyntaxAdder}))s\e[${Normal}m"
+		PrintSyntax="${PrintSyntax} \e[${BoxDetailColor}m%-$((63+SpecialSyntaxAdder))s\e[${Normal}m"
 		# There is a total of 36 Spaces available.
 		BoxTrail="${BoxTrail:0:36}" # TEXT (only the first 36 characters)
 		StrU8DiffLen "${BoxTrail}"
 		SpecialSyntaxAdder="$?"
-		PrintSyntax="${PrintSyntax} \e[${Dimmed}m%$((36+${SpecialSyntaxAdder}))s\e[${Normal}m"
+		PrintSyntax="${PrintSyntax} \e[${Dimmed}m%$((36+SpecialSyntaxAdder))s\e[${Normal}m"
 
 	fi
 
@@ -726,7 +725,7 @@ function PrintHelper() {
 function CheckObject() {
 
  function GoToPrint() {
-	AttentionMessage "ERROR" "Could not find \"${MyInputType:-ERROR}\" \"${MyInputName:-ERROR}\"."
+	AttentionMessage "ERROR" "Could not find TYPE:\"${MyInputType:-ERROR}\" NAME:\"${MyInputName:-ERROR}\"."
 	AttentionMessage "REDINFO" "Try auto-installing packages with command line option \"-X\"."
 	sleep 3
  }
@@ -734,20 +733,20 @@ function CheckObject() {
 	# 1/INPUTTYPE [PROG/FILE/ENV/VARI] 2/INPUTNAME [TEXT/VARIABLE/COMMAND] 3/CONTEXT
 	local MyInputType="${1}"
 	local MyInputName="${2}"
-	local MyInputDescription="${3:-PRINT}"
+	local MyInputHandle="${3:-PRINT}"
+	local MyEnv
 
 	# Must have all three inputs to continue.
-	if [[ ! -z ${MyInputType} ]] && [[ ! -z ${MyInputName} ]]; then
+	if [[ -n ${MyInputType} ]] && [[ -n ${MyInputName} ]]; then
 
 		# A program.
 		if [[ ${MyInputType} == "PROG" ]]; then
 
 			# The program should be path executable.
-			which ${MyInputName} &>/dev/null
-			if [[ $? -eq 0 ]]; then
+			if which "${MyInputName}" &>/dev/null; then
 				return 0
 			else
-				[[ ${MyInputDescription} == "PRINT"} ]] \
+				[[ ${MyInputHandle} == "PRINT" ]] \
 					&& GoToPrint
 				return 1
 			fi
@@ -756,11 +755,10 @@ function CheckObject() {
 		elif [[ ${MyInputType} == "FILE" ]]; then
 
 			# The file should be in the relative directory.
-			find "${MyInputName}" &>/dev/null
-			if [[ $? -eq 0 ]]; then
+			if find "${MyInputName}" &>/dev/null; then
 				return 0
 			else
-				[[ ${MyInputDescription} == "PRINT"} ]] \
+				[[ ${MyInputHandle} == "PRINT" ]] \
 					&& GoToPrint
 				return 1
 			fi
@@ -778,14 +776,16 @@ function CheckObject() {
 		# An environment.
 		elif [[ ${MyInputType} =~ "ENV" ]]; then
 
+			# Unspecified option defaults to "a" / ALL uname variables.
 			[[ ${MyInputType} == "ENV" ]] \
 				&& MyInputType="ENV-a"
+
 			# Uname output.
-			local MyEnv=$(uname ${MyInputType##*ENV} 2>/dev/null)
-			if [[ "${MyEnv:-NONE}" =~ "${MyInputName}" ]]; then
+			MyEnv=$(uname ${MyInputType##*ENV} 2>/dev/null)
+			if [[ "${MyEnv:-NONE}" =~ ${MyInputName} ]]; then
 				return 0
 			else
-				[[ ${MyInputDescription} == "PRINT"} ]] \
+				[[ ${MyInputHandle} == "PRINT" ]] \
 					&& GoToPrint
 				return 1
 			fi
@@ -846,8 +846,8 @@ function FancyPrint() {
 		ThisArraySize=${#ThisLogoA[*]}
 		ThisArrayMax=$((32768/ThisArraySize*ThisArraySize))
 		for ((i=ThisArraySize-1;i>0;i--)); do
-			while (((ThisRand=${RANDOM})>=ThisArrayMax)); do :; done
-			ThisRand="$((${ThisRand}%(${i}+1)))"
+			while (((ThisRand=RANDOM)>=ThisArrayMax)); do :; done
+			ThisRand="$((ThisRand%(i+1)))"
 			ThisTemp="${ThisLogoA[${i}]}"
 			ThisLogoA[${i}]="${ThisLogoA[${ThisRand}]}"
 			ThisLogoA[${ThisRand}]="${ThisTemp}"
@@ -855,7 +855,7 @@ function FancyPrint() {
 	}
 
 	# 1/[TEXTLINE|LOGO] 2/SPEEDFACTOR 3/COLORSELECT
-	local i ThisLogo ThisLineText="${1:-NO TEXT INPUT}" ThisSpeedFactor="${2:-0}" ThisColor="${3:-0}"
+	local i ThisLogoA ThisLogoB ThisLineText="${1:-NO TEXT INPUT}" ThisSpeedFactor="${2:-0}" ThisColor="${3:-0}"
 
 	# Default action is to print the logo.
 	if [[ ${ThisLineText} =~ "LOGO" ]]; then
@@ -892,12 +892,12 @@ function FancyPrint() {
 			ShuffleLogoArray # Shuffle the logo array around.
 
 			tput civis # Invisible cursor during draw.
-			ThisColor="4$((${RANDOM}%6))" # One (random) color for the whole logo.
+			ThisColor="4$((RANDOM%6))" # One (random) color for the whole logo.
 			for ((i=0;i<${#ThisLogoA[*]};i++)); do
 				ThisLineText="${ThisLogoA[${i}]##*:::}"
 				ThisLinePosition="${ThisLogoA[${i}]%%:::*}"
 				ThisColumns="$(tput cols)"
-				tput cup ${ThisLinePosition} $(((${ThisColumns}/2)-(${#ThisLineText}/2)))
+				tput cup ${ThisLinePosition} $(((ThisColumns/2)-(${#ThisLineText}/2)))
 				printf $(TypeIt "${ThisLineText}" "${ThisSpeedFactor}" "${ThisColor}")
 				sleep 0.15
 			done
@@ -906,7 +906,7 @@ function FancyPrint() {
 				ThisLineText="${ThisLogoB[${i}]##*:::}"
 				ThisLinePosition="${ThisLogoB[${i}]%%:::*}"
 				ThisColumns="$(tput cols)"
-				tput cup ${ThisLinePosition} $(((${ThisColumns}/2)-(${#ThisLineText}/2)))
+				tput cup ${ThisLinePosition} $(((ThisColumns/2)-(${#ThisLineText}/2)))
 				printf $(TypeIt "${ThisLineText}" "${ThisSpeedFactor}" "${ThisColor}")
 				sleep 0.05
 			done
@@ -995,14 +995,14 @@ function GetYorN() {
 
 	# Get the answer.
 	if [[ ${TimerVal} ]]; then
-		trap "" SIGINT SIGTERM SIGKILL # Ignore CTRL+C events.
+		trap '' SIGINT SIGTERM # Ignore CTRL+C events.
 		# A request for YES OR NO is a question only.
 		AttentionMessage "YES OR NO" "${InputQuestion}"
 		read -t ${TimerVal} -p "[${CurrentPath:-\/}] Yes or No? [DEFAULT=\"${DefaultAnswer}\"] [TIMEOUT=${TimerVal[0]}s] > "
 		[[ $? -ne 0 ]] \
 			&& echo "[TIMED OUT, DEFAULT \"${DefaultAnswer}\" SELECTED]" \
 			&& sleep 1
-		trap "GoToExit 2" SIGINT SIGTERM SIGKILL # Reset CTRL+C events.
+		trap 'GoToExit 2' SIGINT SIGTERM # Reset CTRL+C events.
 	elif [[ ${InputQuestion} == "SPECIAL-PAUSE" ]]; then
 		read -p "Press ENTER to Continue > "
 		unset REPLY
@@ -1104,7 +1104,7 @@ function GetSelection() {
 					;;
 
 					*)
-						UserResponse="${InputAllowed[$((${REPLY}-1))]}"
+						UserResponse="${InputAllowed[$((REPLY-1))]}"
 						ClearLines "ALL"
 						return 0
 					;;
@@ -1134,7 +1134,7 @@ function GetObjectName() {
 	ContextQuestion[1]="${1}"
 
 	# If the last question asked is not the currently asked question, erase the default answer.
-	[[ ${ContextQuestion[1]} != ${ContextQuestion[0]:-NONE} ]] \
+	[[ ${ContextQuestion[1]} != "${ContextQuestion[0]:-NONE}" ]] \
 		&& unset GetObjectNameLast
 	ContextQuestion[0]="${ContextQuestion[1]}"
 
@@ -1160,46 +1160,46 @@ function GetObjectName() {
 # Help the user with filter syntax.
 function FilterHelp() {
 	AttentionMessage "GENERALINFO" "Filter Function Help."
-	FancyPrint $(printf "%s\n" 'The filter function utilizes Linux program "egrep" with option "-i" for case in-sensitivity and option "-E" for extended regular expressions.') "1" "0"
-	FancyPrint $(printf "%s\n" 'Any REGEX pattern you can use in "egrep" normally, you can use here against the object listing you have chosen.') "1" "0"
-	FancyPrint $(printf "%s\n\n" 'The filter function only applies to the initial list of returned objects from the API and not the followed associations.') "1" "0"
+	FancyPrint "$(printf "%s\n" 'The filter function utilizes Linux program "grep" with option "-i" for case in-sensitivity and option "-E" for extended regular expressions.')" "1" "0"
+	FancyPrint "$(printf "%s\n" 'Any REGEX pattern you can use in "grep" normally, you can use here against the object listing you have chosen.')" "1" "0"
+	FancyPrint "$(printf "%s\n\n" 'The filter function only applies to the initial list of returned objects from the API and not the followed associations.')" "1" "0"
 
-	FancyPrint $(printf "%s\n" 'Regular Examples...') "1" "1"
-	FancyPrint $(printf "%-30s %s\n" 'Singapore' 'Return objects that have "Singapore" contained within their name.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" 'Singapore.*DC.*Backup' 'Return objects that have "Singa[anychars]DC[anychars]Backup" contained within their name.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" 'Unit1.*5' 'Return objects that have "Unit1[anychars]5" contained within their name.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" 'Kapil|Dipesh|Unit.*Singapore' 'Return objects that have either "Kapil" or "Dipesh" or "Unit[anychars]Singapore" contained within their name.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n\n" '*:::Kapil Singapore=>*' 'Return EXACTLY the object that has "Kapil Singapore" as their name.') "0" "0"
+	FancyPrint "$(printf "%s\n" 'Regular Examples...')" "1" "1"
+	FancyPrint "$(printf "%-30s %s\n" 'Singapore' 'Return objects that have "Singapore" contained within their name.')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n" 'Singapore.*DC.*Backup' 'Return objects that have "Singa[anychars]DC[anychars]Backup" contained within their name.')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n" 'Unit1.*5' 'Return objects that have "Unit1[anychars]5" contained within their name.')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n" 'Kapil|Dipesh|Unit.*Singapore' 'Return objects that have either "Kapil" or "Dipesh" or "Unit[anychars]Singapore" contained within their name.')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n\n" '*:::Kapil Singapore=>*' 'Return EXACTLY the object that has "Kapil Singapore" as their name.')" "0" "0"
 
-	FancyPrint $(printf "%s\n" 'Special Endpoint Only Examples...') "1" "1"
-	FancyPrint $(printf "%-30s %s\n" 'NRG:::' 'Return all Endpoint objects in the UNREGISTERED state.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" '100:::' 'Return all Endpoint objects in the REGISTERING state.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" '200:::' 'Return all Endpoint objects in the OFFLINE state.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" '300:::' 'Return all Endpoint objects in the ONLINE state.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" 'ERR:::' 'Return all Endpoint objects in the ERROR/OTHER state.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" ':::CL:::' 'Return all Endpoint objects that are CLIENTS.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" ':::ZTCL:::' 'Return all Endpoint objects that are ZITI CLIENTS.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" ':::GW:::' 'Return all Endpoint objects that are INTERNET GATEWAYS.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" ':::AWSCPEGW:::' 'Return all Endpoint objects that are AWS GATEWAYS.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" ':::AZCPEGW:::' 'Return all Endpoint objects that are AZURE GATEWAYS.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" ':::AZSGW:::' 'Return all Endpoint objects that are AZURE STACK GATEWAYS.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" ':::GCPCPEGW:::' 'Return all Endpoint objects that are GCP/GOOGLE GATEWAYS.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" ':::ZTGW:::' 'Return all Endpoint objects that are HOSTED ZITI BRIDGE GATEWAYS.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" ':::ZTNHGW:::' 'Return all Endpoint objects that are PRIVATE ZITI BRIDGE GATEWAYS.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n\n" ':::VCPEGW:::' 'Return all Endpoint objects that are GENERIC VM GATEWAYS.') "0" "0"
+	FancyPrint "$(printf "%s\n" 'Special Endpoint Only Examples...')" "1" "1"
+	FancyPrint "$(printf "%-30s %s\n" 'NRG:::' 'Return all Endpoint objects in the UNREGISTERED state.')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n" '100:::' 'Return all Endpoint objects in the REGISTERING state.')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n" '200:::' 'Return all Endpoint objects in the OFFLINE state.')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n" '300:::' 'Return all Endpoint objects in the ONLINE state.')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n" 'ERR:::' 'Return all Endpoint objects in the ERROR/OTHER state.')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n" ':::CL:::' 'Return all Endpoint objects that are CLIENTS.')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n" ':::ZTCL:::' 'Return all Endpoint objects that are ZITI CLIENTS.')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n" ':::GW:::' 'Return all Endpoint objects that are INTERNET GATEWAYS.')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n" ':::AWSCPEGW:::' 'Return all Endpoint objects that are AWS GATEWAYS.')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n" ':::AZCPEGW:::' 'Return all Endpoint objects that are AZURE GATEWAYS.')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n" ':::AZSGW:::' 'Return all Endpoint objects that are AZURE STACK GATEWAYS.')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n" ':::GCPCPEGW:::' 'Return all Endpoint objects that are GCP/GOOGLE GATEWAYS.')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n" ':::ZTGW:::' 'Return all Endpoint objects that are HOSTED ZITI BRIDGE GATEWAYS.')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n" ':::ZTNHGW:::' 'Return all Endpoint objects that are PRIVATE ZITI BRIDGE GATEWAYS.')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n\n" ':::VCPEGW:::' 'Return all Endpoint objects that are GENERIC VM GATEWAYS.')" "0" "0"
 
-	FancyPrint $(printf "%s\n" 'Combination Special Endpoint Only Examples...') "1" "1"
-	FancyPrint $(printf "%-30s %s\n" '200:::CL:::Dipesh' 'Return all Endpoint objects that are OFFLINE, are a CLIENT, and begin with "Dipesh" in their name.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" '300:::.*:::.*Kapil' 'Return all Endpoint objects that are ONLINE, are ANY TYPE, and begin with "[anychars]Kapil" in their name.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n\n" '(ERR|200):::CL' 'Return all Endpoint objects that are OFFLINE or in ERROR and are a CLIENT.') "0" "0"
+	FancyPrint "$(printf "%s\n" 'Combination Special Endpoint Only Examples...')" "1" "1"
+	FancyPrint "$(printf "%-30s %s\n" '200:::CL:::Dipesh' 'Return all Endpoint objects that are OFFLINE, are a CLIENT, and begin with "Dipesh" in their name.')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n" '300:::.*:::.*Kapil' 'Return all Endpoint objects that are ONLINE, are ANY TYPE, and begin with "[anychars]Kapil" in their name.')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n\n" '(ERR|200):::CL' 'Return all Endpoint objects that are OFFLINE or in ERROR and are a CLIENT.')" "0" "0"
 
-	FancyPrint $(printf "%s\n" 'Special Services Only Examples...') "1" "1"
-	FancyPrint $(printf "%-30s %s\n" ':::GW:::' 'Return all Service objects that are the type "GATEWAY".') "0" "0"
-	FancyPrint $(printf "%-30s %s\n\n" ':::CS:::' 'Return all Service objects that are the type "CLIENTSERVER".') "0" "0"
+	FancyPrint "$(printf "%s\n" 'Special Services Only Examples...')" "1" "1"
+	FancyPrint "$(printf "%-30s %s\n" ':::GW:::' 'Return all Service objects that are the type "GATEWAY".')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n\n" ':::CS:::' 'Return all Service objects that are the type "CLIENTSERVER".')" "0" "0"
 
-	FancyPrint $(printf "%s\n" 'Navigation...') "1" "1"
-	FancyPrint $(printf "%-30s %s\n" 'BACK' 'Go back to the previous prompt.') "0" "0"
-	FancyPrint $(printf "%-30s %s\n" 'QUIT' 'Completely exit the program.') "0" "0"
+	FancyPrint "$(printf "%s\n" 'Navigation...')" "1" "1"
+	FancyPrint "$(printf "%-30s %s\n" 'BACK' 'Go back to the previous prompt.')" "0" "0"
+	FancyPrint "$(printf "%-30s %s\n" 'QUIT' 'Completely exit the program.')" "0" "0"
 }
 
 #################################################################################
@@ -1220,7 +1220,7 @@ function GetFilterString() {
 
 		! GetResponse "Enter a REGEX/GREP phrase to filter results against. [HINT: NoFilter=\".\"] [HELP=\"HELPME\"]" "${PrimaryFilterString:-.}" \
 			&& return 1
-		case $(echo ${UserResponse} | tr a-z A-Z) in
+		case $(echo "${UserResponse}" | tr '[:lower:]' '[:lower:]') in
 			"HELPME")
 				FilterHelp
 			;;
@@ -1241,12 +1241,12 @@ function GetFilterString() {
 # Process and return responses from the API system.
 function ProcessResponse() {
 	# 1/CURLSYNTAX 2/URL 3/EXPECTEDRESPONSE 4/QUIET[OPTIONAL]
-	trap "" SIGINT SIGTERM SIGKILL # Ignore CTRL+C events.
+	trap '' SIGINT SIGTERM # Ignore CTRL+C events.
 
 	# Get the JSON with CURL HTTP headers.
 	OutputResponse="$(eval "${1} ${2}" | tr -d '\r')"
 
-	trap "GoToExit 2" SIGINT SIGTERM SIGKILL # Reset CTRL+C events.
+	trap 'GoToExit 2' SIGINT SIGTERM # Reset CTRL+C events.
 
 	# Get the CURL HTTP headers isolated.
 	OutputHeaders="$(sed '/^$/,/^$/d' <<< "${OutputResponse}")"
@@ -1292,7 +1292,7 @@ function GetObjects() {
 	local URLTrail="${2/FOLLOW*/}" # In FOLLOW-XYZ mode, there is no input URLTrail, so set it to blank (default URLTrail will be used).
 	local ExplicitUUID="${3}" # In FOLLOW-ASERVICES ListMode (AppWAN Only), use this UUID.
 	local AskDelete="0" # In certain situations the program will ask the user to delete objects that are orphans.
-	local i j BGPID Target_ENDPOINT Target_ENDPOINTGROUP Target_SERVICE Target_APPWAN EndpointRegState IsAssociated
+	local i j BGPID Target_ENDPOINT Target_ENDPOINTGROUP Target_SERVICE
 	local OutputResponse OutputHeaders OutputJSON
 
 	case ${ListType} in
@@ -1316,7 +1316,7 @@ function GetObjects() {
 					PrintHelper "BOXITEMA" "ORG...." "ERROR:::ERROR" "No Organizations Found." >&2
 				else
 					for ((i=0;i<${#AllOrganizations[*]};i++)); do
-						PrintHelper "BOXITEMA" "ORG$(printf "%04d" "$((${i}+1))")" "${Normal}:::ORGANIZATION" "${AllOrganizations[${i}]}" >&2
+						PrintHelper "BOXITEMA" "ORG$(printf "%04d" "$((i+1))")" "${Normal}:::ORGANIZATION" "${AllOrganizations[${i}]}" >&2
 					done
 				fi
 
@@ -1347,7 +1347,7 @@ function GetObjects() {
 					PrintHelper "BOXITEMA" "NET...." "WARNING:::WARNING" "No Networks Found." >&2
 				else
 					for ((i=0;i<${#AllNetworks[*]};i++)); do
-						PrintHelper "BOXITEMA" "NET$(printf "%04d" "$((${i}+1))")" "${Normal}:::NETWORK" "${AllNetworks[${i}]}" >&2
+						PrintHelper "BOXITEMA" "NET$(printf "%04d" "$((i+1))")" "${Normal}:::NETWORK" "${AllNetworks[${i}]}" >&2
 					done
 				fi
 
@@ -1376,7 +1376,7 @@ function GetObjects() {
 					PrintHelper "BOXITEMA" "IDT...." "WARNING:::WARNING" "No Identity Tenants Found." >&2
 				else
 					for ((i=0;i<${#AllNetworks[*]};i++)); do
-						PrintHelper "BOXITEMA" "IDT$(printf "%04d" "$((${i}+1))")" "${Normal}:::IDTENANTS" "${AllIDTenants[${i}]}" >&2
+						PrintHelper "BOXITEMA" "IDT$(printf "%04d" "$((i+1))")" "${Normal}:::IDTENANTS" "${AllIDTenants[${i}]}" >&2
 					done
 				fi
 
@@ -1414,7 +1414,7 @@ function GetObjects() {
 								| .[]
 								| .name + "=>" + (._links.self.href | split("/"))[-1]
 							' \
-							| egrep -i "${FilterString:-${PrimaryFilterString:-.}}"
+							| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}"
 						)
 					)
 				fi
@@ -1423,7 +1423,7 @@ function GetObjects() {
 					PrintHelper "${BoxType}" "GEO...." "WARNING:::WARNING" "No GeoRegions Found." >&2
 				else
 					for ((i=0;i<${#AllGeoRegions[*]};i++)); do
-						PrintHelper "${BoxType}" "GEO$(printf "%04d" "$((${i}+1))")" "${Normal}:::GEOREGION" "${AllGeoRegions[${i}]}"
+						PrintHelper "${BoxType}" "GEO$(printf "%04d" "$((i+1))")" "${Normal}:::GEOREGION" "${AllGeoRegions[${i}]}"
 					done
 				fi
 
@@ -1448,7 +1448,7 @@ function GetObjects() {
 							| .[]
 							| .worldRegion + "/" + .name + "=>" + (._links.self.href | split("/"))[-1]
 						' \
-						| egrep -i "${FilterString:-${PrimaryFilterString:-.}}"
+						| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}"
 					)
 				)
 
@@ -1461,7 +1461,7 @@ function GetObjects() {
 					FilterString='.' # Set the filter to grab everything in subsequent calls.
 					for ((i=0;i<${#AllCountries[*]};i++)); do
 
-						if [[ $((${i}%10)) -eq 0 ]] && [[ ${i} -ne 0 ]]; then
+						if [[ $((i%10)) -eq 0 ]] && [[ ${i} -ne 0 ]]; then
 							! GetYorN "Shown ${i}/${#AllCountries[*]} - Show more?" "Yes" "5" \
 								&& ClearLines "3" \
 								&& break
@@ -1471,7 +1471,7 @@ function GetObjects() {
 						Target_COUNTRY[0]=${AllCountries[${i}]%%=>*}
 						Target_COUNTRY[1]=${AllCountries[${i}]##*=>}
 
-						PrintHelper "BOXITEMA" "CTY$(printf "%04d" "$((${i}+1))")" "${Normal}:::REGION/COUNTRY" "${AllCountries[${i}]}" >&2
+						PrintHelper "BOXITEMA" "CTY$(printf "%04d" "$((i+1))")" "${Normal}:::REGION/COUNTRY" "${AllCountries[${i}]}" >&2
 
 						case ${ListMode} in
 							"FOLLOW-GEOREGION")
@@ -1481,7 +1481,7 @@ function GetObjects() {
 							;;
 						esac
 
-						[[ $((${i}+1)) -eq ${#AllCountries[*]} ]] \
+						[[ $((i+1)) -eq ${#AllCountries[*]} ]] \
 							|| PrintHelper "BOXMIDLINEA" >&2
 
 					done
@@ -1491,7 +1491,7 @@ function GetObjects() {
 				else
 
 					for ((i=0;i<${#AllCountries[*]};i++)); do
-						PrintHelper "BOXITEMA" "CTY$(printf "%04d" "$((${i}+1))")" "${Normal}:::REGION/COUNTRY" "${AllCountries[${i}]}"
+						PrintHelper "BOXITEMA" "CTY$(printf "%04d" "$((i+1))")" "${Normal}:::REGION/COUNTRY" "${AllCountries[${i}]}"
 					done
 
 				fi
@@ -1533,14 +1533,14 @@ function GetObjects() {
 					PrintHelper "BOXITEMA" "EPT...." "WARNING:::WARNING" "No Gateway Endpoints Found." >&2
 				else
 					for ((i=0;i<${#AllGateways[*]};i++)); do
-						PrintHelper "BOXITEMA" "EPT$(printf "%04d" "$((${i}+1))")" "${Normal}:::GW_ENDPOINT" "${AllGeoRegions[${i}]}" >&2
+						PrintHelper "BOXITEMA" "EPT$(printf "%04d" "$((i+1))")" "${Normal}:::GW_ENDPOINT" "${AllGeoRegions[${i}]}" >&2
 					done
 				fi
 
 				[[ ${#AllGateways[*]} -eq 0 ]] \
 					&& AttentionMessage "WARNING" "No Gateway Endpoints found." >&2
 				for ((i=0;i<${#AllGateways[*]};i++)); do
-					PrintHelper "BOXITEMA" "ORG$(printf "%04d" "$((${i}+1))")" "${AllGateways[${i}]%:::*}" "${AllGateways[${i}]##*:::}"
+					PrintHelper "BOXITEMA" "ORG$(printf "%04d" "$((i+1))")" "${AllGateways[${i}]%:::*}" "${AllGateways[${i}]##*:::}"
 				done
 
 				PrintHelper "BOXFOOTLINEA" >&2
@@ -1613,8 +1613,8 @@ function GetObjects() {
 								end
 							| .currentState + ":::" + .endpointType + ":::" + .name + "=>" + (._links.self.href | split("/"))[-1]
 						' \
-						| egrep -i "${FilterString:-${PrimaryFilterString:-.}}" \
-						| egrep -v "${SecondaryFilter}"
+						| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}" \
+						| grep -Ev "${SecondaryFilter}"
 					)
 				)
 
@@ -1630,7 +1630,7 @@ function GetObjects() {
 					FilterString='.' # Set the filter to grab everything in subsequent ListObject calls.
 					for ((i=0;i<${#AllEndpoints[*]};i++)); do
 
-						if [[ $((${i}%10)) -eq 0 ]] && [[ ${i} -ne 0 ]]; then
+						if [[ $((i%10)) -eq 0 ]] && [[ ${i} -ne 0 ]]; then
 							! GetYorN "Shown ${i}/${#AllEndpoints[*]} - Show more?" "Yes" "5" \
 								&& ClearLines "3" \
 								&& break
@@ -1640,7 +1640,7 @@ function GetObjects() {
 						Target_ENDPOINT[0]=${AllEndpoints[${i}]%%=>*}
 						Target_ENDPOINT[1]=${AllEndpoints[${i}]##*=>}
 
-						PrintHelper "BOXITEMA" "EPT$(printf "%04d" "$((${i}+1))")" "${AllEndpoints[${i}]%:::*}_ENDPOINT" "${AllEndpoints[${i}]##*:::}"
+						PrintHelper "BOXITEMA" "EPT$(printf "%04d" "$((i+1))")" "${AllEndpoints[${i}]%:::*}_ENDPOINT" "${AllEndpoints[${i}]##*:::}"
 
 						case ${ListMode} in
 							"FOLLOW-ENDPOINTGROUPS")
@@ -1668,18 +1668,18 @@ function GetObjects() {
 							;;
 
 							"FOLLOW-ALL")
-								trap "" SIGINT SIGTERM SIGKILL # Ignore CTRL+C events.
+								trap '' SIGINT SIGTERM # Ignore CTRL+C events.
 								AskDelete="0"
 								PrintHelper "BOXITEMASUBLINEA"
 								! GetObjects "ENDPOINTGROUPS" "endpoints/${Target_ENDPOINT[1]}/endpointGroups" 2>/dev/null \
-									&& let AskDelete++
+									&& (( AskDelete++ ))
 								GetObjects "SERVICES" "endpoints/${Target_ENDPOINT[1]}/services" 2>/dev/null &
 								BGPID[0]=$!
 								GetObjects "APPWANS" "endpoints/${Target_ENDPOINT[1]}/appWans" 2>/dev/null &
 								BGPID[1]=$!
-								! wait ${BGPID[0]} && let AskDelete++
-								! wait ${BGPID[1]} && let AskDelete++
-								trap "GoToExit 2" SIGINT SIGTERM SIGKILL # Reset CTRL+C events.
+								! wait ${BGPID[0]} && (( AskDelete++ ))
+								! wait ${BGPID[1]} && (( AskDelete++ ))
+								trap 'GoToExit 2' SIGINT SIGTERM # Reset CTRL+C events.
 								[[ ${AskDelete:-0} -eq 3 ]] \
 									&& PrintHelper "BOXITEMASUB" "......." "${FBlack};${BRed}:::WARNING" "No EndpointGroup, AppWAN, or Service associations were found." \
 									&& (GetYorN "Do you wish to remove \"${Target_ENDPOINT[0]##*:::}\"?" "No" "10" \
@@ -1688,7 +1688,7 @@ function GetObjects() {
 							;;
 						esac
 
-						[[ $((${i}+1)) -eq ${#AllEndpoints[*]} ]] \
+						[[ $((i+1)) -eq ${#AllEndpoints[*]} ]] \
 							|| PrintHelper "BOXMIDLINEA" >&2
 
 					done
@@ -1706,13 +1706,13 @@ function GetObjects() {
 						for ((i=0;i<${#AllEndpoints[*]};i++)); do
 							# URLTrail specification indicates this is a secondary GetObjects call.
 							if [[ ${URLTrail} ]] && [[ ${URLTrail} =~ "endpointGroups" ]]; then
-								[[ $((${i}+1)) -ne ${#AllEndpoints[*]} ]] \
-									&& PrintHelper "BOXITEMASUB" "EPT$(printf "%04d" "$((${i}+1))")" "${AllEndpoints[${i}]%:::*}_ENDPOINT" "┣━${AllEndpoints[${i}]##*:::}" \
-									|| PrintHelper "BOXITEMASUB" "EPT$(printf "%04d" "$((${i}+1))")" "${AllEndpoints[${i}]%:::*}_ENDPOINT" "┗━${AllEndpoints[${i}]##*:::}"
+								[[ $((i+1)) -ne ${#AllEndpoints[*]} ]] \
+									&& PrintHelper "BOXITEMASUB" "EPT$(printf "%04d" "$((i+1))")" "${AllEndpoints[${i}]%:::*}_ENDPOINT" "┣━${AllEndpoints[${i}]##*:::}" \
+									|| PrintHelper "BOXITEMASUB" "EPT$(printf "%04d" "$((i+1))")" "${AllEndpoints[${i}]%:::*}_ENDPOINT" "┗━${AllEndpoints[${i}]##*:::}"
 							elif [[ ${URLTrail} ]]; then
-								PrintHelper "BOXITEMASUB" "EPT$(printf "%04d" "$((${i}+1))")" "${AllEndpoints[${i}]%:::*}_ENDPOINT" "${AllEndpoints[${i}]##*:::}"
+								PrintHelper "BOXITEMASUB" "EPT$(printf "%04d" "$((i+1))")" "${AllEndpoints[${i}]%:::*}_ENDPOINT" "${AllEndpoints[${i}]##*:::}"
 							else
-								PrintHelper "BOXITEMA" "EPT$(printf "%04d" "$((${i}+1))")" "${AllEndpoints[${i}]%:::*}_ENDPOINT" "${AllEndpoints[${i}]##*:::}"
+								PrintHelper "BOXITEMA" "EPT$(printf "%04d" "$((i+1))")" "${AllEndpoints[${i}]%:::*}_ENDPOINT" "${AllEndpoints[${i}]##*:::}"
 							fi
 						done
 
@@ -1743,7 +1743,7 @@ function GetObjects() {
 							| .[]
 							| .name + "=>" + (._links.self.href | split("/"))[-1]
 						' \
-						| egrep -i "${FilterString:-${PrimaryFilterString:-.}}"
+						| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}"
 					)
 				)
 
@@ -1760,7 +1760,7 @@ function GetObjects() {
 
 					for ((i=0;i<${#AllEndpointGroups[*]};i++)); do
 
-						if [[ $((${i}%10)) -eq 0 ]] && [[ ${i} -ne 0 ]]; then
+						if [[ $((i%10)) -eq 0 ]] && [[ ${i} -ne 0 ]]; then
 							! GetYorN "Shown ${i}/${#AllEndpointGroups[*]} - Show more?" "Yes" "5" \
 								&& ClearLines "3" \
 								&& break
@@ -1770,7 +1770,7 @@ function GetObjects() {
 						Target_ENDPOINTGROUP[0]=${AllEndpointGroups[${i}]%%=>*}
 						Target_ENDPOINTGROUP[1]=${AllEndpointGroups[${i}]##*=>}
 
-						PrintHelper "BOXITEMA" "EPG$(printf "%04d" "$((${i}+1))")" "${Normal}:::ENDPOINTGROUP" "${AllEndpointGroups[${i}]}"
+						PrintHelper "BOXITEMA" "EPG$(printf "%04d" "$((i+1))")" "${Normal}:::ENDPOINTGROUP" "${AllEndpointGroups[${i}]}"
 						PrintHelper "BOXITEMASUBLINEA"
 
 						! GetObjects "ENDPOINTS" "endpointGroups/${Target_ENDPOINTGROUP[1]}/endpoints" 2>/dev/null \
@@ -1779,7 +1779,7 @@ function GetObjects() {
 								&& SetObjects "DELENDPOINTGROUP" "${Target_ENDPOINTGROUP[1]}" \
 								|| ClearLines "2")
 
-						[[ $((${i}+1)) -eq ${#AllEndpointGroups[*]} ]] \
+						[[ $((i+1)) -eq ${#AllEndpointGroups[*]} ]] \
 							|| PrintHelper "BOXMIDLINEA" >&2
 
 					done
@@ -1796,14 +1796,14 @@ function GetObjects() {
 							Target_ENDPOINTGROUP[0]=${AllEndpointGroups[${i}]%%=>*}
 							Target_ENDPOINTGROUP[1]=${AllEndpointGroups[${i}]##*=>}
 
-							PrintHelper "BOXITEMASUB" "EPG$(printf "%04d" "$((${i}+1))")" "${Normal}:::ENDPOINTGROUP" "┏${AllEndpointGroups[${i}]}"
+							PrintHelper "BOXITEMASUB" "EPG$(printf "%04d" "$((i+1))")" "${Normal}:::ENDPOINTGROUP" "┏${AllEndpointGroups[${i}]}"
 							! GetObjects "ENDPOINTS" "endpointGroups/${Target_ENDPOINTGROUP[1]}/endpoints" 2>/dev/null \
 								&& PrintHelper "BOXITEMASUB" "EPT...." "${FBlack};${BRed}:::WARNING" "No direct Endpoint associations were found." \
 								&& (GetYorN "Do you wish to remove \"${Target_ENDPOINTGROUP[0]}\"" "No" "10" \
 									&& SetObjects "DELENDPOINTGROUP" "${Target_ENDPOINTGROUP[1]}" \
 									|| ClearLines "2")
 
-							[[ $((${i}+1)) -eq ${#AllEndpointGroups[*]} ]] \
+							[[ $((i+1)) -eq ${#AllEndpointGroups[*]} ]] \
 								|| PrintHelper "BOXMIDLINEA" >&2
 
 						done
@@ -1819,7 +1819,7 @@ function GetObjects() {
 							# For each EndpointGroup, search for a specific Endpoint.
 							GetObjects "ENDPOINTS" "endpointGroups/${Target_ENDPOINTGROUP[1]}/endpoints"
 							echo -e "${ExplicitUUID}\n${AllEndpoints[*]}"
-							[[ "${AllEndpoints[*]}" =~ "${ExplicitUUID}" ]] \
+							[[ "${AllEndpoints[*]}" =~ ${ExplicitUUID} ]] \
 								&& return 0 # Endpoint found in this EndpointGroup.
 
 						done
@@ -1836,8 +1836,8 @@ function GetObjects() {
 
 							# URLTrail specification indicates this is a secondary GetObjects call.
 							[[ ${URLTrail} ]] \
-								&& PrintHelper "BOXITEMASUB" "EPG$(printf "%04d" "$((${i}+1))")" "${Normal}:::ENDPOINTGROUP" "${AllEndpointGroups[${i}]}" \
-								|| PrintHelper "BOXITEMA" "EPG$(printf "%04d" "$((${i}+1))")" "${Normal}:::ENDPOINTGROUP" "${AllEndpointGroups[${i}]}"
+								&& PrintHelper "BOXITEMASUB" "EPG$(printf "%04d" "$((i+1))")" "${Normal}:::ENDPOINTGROUP" "${AllEndpointGroups[${i}]}" \
+								|| PrintHelper "BOXITEMA" "EPG$(printf "%04d" "$((i+1))")" "${Normal}:::ENDPOINTGROUP" "${AllEndpointGroups[${i}]}"
 
 						done
 
@@ -1869,7 +1869,7 @@ function GetObjects() {
 							| .[]
 							| .serviceClass + ":::" + .name + "=>" + .endpointId + "=>" + (._links.self.href | split("/"))[-1]
 						' \
-						| egrep -i "${FilterString:-${PrimaryFilterString:-.}}"
+						| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}"
 					)
 				)
 
@@ -1885,7 +1885,7 @@ function GetObjects() {
 					FilterString='.' # Set the filter to grab everything in subsequent calls.
 					for ((i=0;i<${#AllServices[*]};i++)); do
 
-						if [[ $((${i}%10)) -eq 0 ]] && [[ ${i} -ne 0 ]]; then
+						if [[ $((i%10)) -eq 0 ]] && [[ ${i} -ne 0 ]]; then
 							! GetYorN "Shown ${i}/${#AllServices[*]} - Show more?" "Yes" "5" \
 								&& ClearLines "3" \
 								&& break
@@ -1899,7 +1899,7 @@ function GetObjects() {
 						Target_SERVICE[4]="${Target_SERVICE[1]%%=>*}" # GWUUID
 						Target_SERVICE[5]="${Target_SERVICE[1]##*=>}" # SERVICEUUID
 
-						PrintHelper "BOXITEMA" "SRV$(printf "%04d" "$((${i}+1))")" "${Normal}:::${Target_SERVICE[0]%:::*}_SERVICE" "${Target_SERVICE[3]}=>${Target_SERVICE[5]}"
+						PrintHelper "BOXITEMA" "SRV$(printf "%04d" "$((i+1))")" "${Normal}:::${Target_SERVICE[0]%:::*}_SERVICE" "${Target_SERVICE[3]}=>${Target_SERVICE[5]}"
 
 						case ${ListMode} in
 							"FOLLOW-ENDPOINTS")
@@ -1919,14 +1919,14 @@ function GetObjects() {
 							;;
 
 							"FOLLOW-ALL")
-								trap "" SIGINT SIGTERM SIGKILL # Ignore CTRL+C events.
+								trap '' SIGINT SIGTERM # Ignore CTRL+C events.
 								AskDelete="0"
 								PrintHelper "BOXITEMASUBLINEA"
 								! GetObjects "ENDPOINTS" "endpoints/${Target_SERVICE[4]}" 2>/dev/null \
-									&& let AskDelete++
+									&& (( AskDelete++ ))
 								! GetObjects "APPWANS" "services/${Target_SERVICE[5]}/appWans" 2>/dev/null \
-									&& let AskDelete++
-								trap "GoToExit 2" SIGINT SIGTERM SIGKILL # Reset CTRL+C events.
+									&& (( AskDelete++ ))
+								trap 'GoToExit 2' SIGINT SIGTERM # Reset CTRL+C events.
 						esac
 
 						[[ ${AskDelete:-0} -eq 2 ]] \
@@ -1935,7 +1935,7 @@ function GetObjects() {
 								&& SetObjects "DELSERVICE" "${Target_SERVICE[1]}" \
 								|| ClearLines "2")
 
-						[[ $((${i}+1)) -eq ${#AllServices[*]} ]] \
+						[[ $((i+1)) -eq ${#AllServices[*]} ]] \
 							|| PrintHelper "BOXMIDLINEA" >&2
 
 					done
@@ -1959,8 +1959,8 @@ function GetObjects() {
 							Target_SERVICE[5]="${Target_SERVICE[1]##*=>}" # SERVICEUUID
 							# URLTrail specification indicates this is a secondary GetObjects call.
 							[[ ${URLTrail} ]] \
-								&& PrintHelper "BOXITEMASUB" "SRV$(printf "%04d" "$((${i}+1))")" "${Normal}:::${Target_SERVICE[0]%:::*}_SERVICE" "${Target_SERVICE[3]}=>${Target_SERVICE[5]}" \
-								|| PrintHelper "BOXITEMA" "SRV$(printf "%04d" "$((${i}+1))")" "${Normal}:::${Target_SERVICE[0]%:::*}_SERVICE" "${Target_SERVICE[3]}=>${Target_SERVICE[5]}"
+								&& PrintHelper "BOXITEMASUB" "SRV$(printf "%04d" "$((i+1))")" "${Normal}:::${Target_SERVICE[0]%:::*}_SERVICE" "${Target_SERVICE[3]}=>${Target_SERVICE[5]}" \
+								|| PrintHelper "BOXITEMA" "SRV$(printf "%04d" "$((i+1))")" "${Normal}:::${Target_SERVICE[0]%:::*}_SERVICE" "${Target_SERVICE[3]}=>${Target_SERVICE[5]}"
 						done
 
 					fi
@@ -1990,7 +1990,7 @@ function GetObjects() {
 							| .[]
 							| .name + "=>" + (._links.self.href | split("/"))[-1]
 						' \
-						| egrep -i "${FilterString:-${PrimaryFilterString:-.}}"
+						| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}"
 					)
 				)
 
@@ -2013,7 +2013,7 @@ function GetObjects() {
 
 							GetObjects "ENDPOINTS" "appWans/${Target_APPWAN[1]}/endpoints" &>/dev/null
 							# If the Endpoint was found directly associated with the AppWAN, print AppWAN Services and move to the next AppWAN.
-							[[ "${AllEndpoints[*]}" =~ "${ExplicitUUID}" ]] \
+							[[ "${AllEndpoints[*]}" =~ ${ExplicitUUID} ]] \
 								&& GetObjects "SERVICES" "appWans/${Target_APPWAN[1]}/services" 2>/dev/null \
 								&& continue
 
@@ -2028,14 +2028,14 @@ function GetObjects() {
 
 						fi
 
-						if [[ $((${i}%10)) -eq 0 ]] && [[ ${i} -ne 0 ]]; then
+						if [[ $((i%10)) -eq 0 ]] && [[ ${i} -ne 0 ]]; then
 							! GetYorN "Shown ${i}/${#AllAppWANs[*]} - Show more?" "Yes" "5" \
 								&& ClearLines "3" \
 								&& break
 							ClearLines "2"
 						fi
 
-						PrintHelper "BOXITEMA" "APW$(printf "%04d" "$((${i}+1))")" "${Normal}:::APPWAN" "${AllAppWANs[${i}]}"
+						PrintHelper "BOXITEMA" "APW$(printf "%04d" "$((i+1))")" "${Normal}:::APPWAN" "${AllAppWANs[${i}]}"
 
 						case ${ListMode} in
 							"FOLLOW-SERVICES")
@@ -2051,25 +2051,25 @@ function GetObjects() {
 								PrintHelper "BOXITEMASUBLINEA"
 								! GetObjects "ENDPOINTS" "appWans/${Target_APPWAN[1]}/endpoints" 2>/dev/null \
 									&& PrintHelper "BOXITEMASUB" "EPT...." "${FBlack};${BYellow}:::WARNING" "No direct Endpoint associations were found." \
-									&& let AskDelete++
+									&& (( AskDelete++ ))
 								! GetObjects "ENDPOINTGROUPS-ENDPOINTS" "appWans/${Target_APPWAN[1]}/endpointGroups" 2>/dev/null \
 									&& PrintHelper "BOXITEMASUB" "EPG...." "${FBlack};${BYellow}:::WARNING" "No EndpointGroup associations were found." \
-									&& let AskDelete++
+									&& (( AskDelete++ ))
 								[[ ${AskDelete:-0} -eq 2 ]] \
 									&& AskDelete="3"
 							;;
 
 						"FOLLOW-ALL")
-								trap "" SIGINT SIGTERM SIGKILL # Ignore CTRL+C events.
+								trap '' SIGINT SIGTERM # Ignore CTRL+C events.
 								AskDelete="0"
 								PrintHelper "BOXITEMASUBLINEA"
 								! GetObjects "SERVICES" "appWans/${Target_APPWAN[1]}/services"  2>/dev/null \
-									&& let AskDelete++
+									&& (( AskDelete++ ))
 								! GetObjects "ENDPOINTS" "appWans/${Target_APPWAN[1]}/endpoints" 2>/dev/null \
-									&& let AskDelete++
+									&& (( AskDelete++ ))
 								! GetObjects "ENDPOINTGROUPS-ENDPOINTS" "appWans/${Target_APPWAN[1]}/endpointGroups" 2>/dev/null \
-									&& let AskDelete++
-								trap "GoToExit 2" SIGINT SIGTERM SIGKILL # Reset CTRL+C events.
+									&& (( AskDelete++ ))
+								trap 'GoToExit 2' SIGINT SIGTERM # Reset CTRL+C events.
 							;;
 						esac
 
@@ -2079,7 +2079,7 @@ function GetObjects() {
 								&& SetObjects "DELAPPWAN" "${Target_APPWAN[1]}" \
 								|| ClearLines "2")
 
-						[[ $((${i}+1)) -eq ${#AllAppWANs[*]} ]] \
+						[[ $((i+1)) -eq ${#AllAppWANs[*]} ]] \
 							|| PrintHelper "BOXMIDLINEA" >&2
 
 					done
@@ -2097,8 +2097,8 @@ function GetObjects() {
 						for ((i=0;i<${#AllAppWANs[*]};i++)); do
 							# URLTrail specification indicates this is a secondary GetObjects call.
 							[[ ${URLTrail} ]] \
-								&& PrintHelper "BOXITEMASUB" "APW$(printf "%04d" "$((${i}+1))")" "${Normal}:::APPWAN" "${AllAppWANs[${i}]}" \
-								|| PrintHelper "BOXITEMA" "APW$(printf "%04d" "$((${i}+1))")" "${Normal}:::APPWAN" "${AllAppWANs[${i}]}"
+								&& PrintHelper "BOXITEMASUB" "APW$(printf "%04d" "$((i+1))")" "${Normal}:::APPWAN" "${AllAppWANs[${i}]}" \
+								|| PrintHelper "BOXITEMA" "APW$(printf "%04d" "$((i+1))")" "${Normal}:::APPWAN" "${AllAppWANs[${i}]}"
 						done
 
 					fi
@@ -2341,14 +2341,13 @@ function RunUsageReport() {
 		local InputValues="${2:-0}"
 		local AvgCalc="0"
 		local TrendCalc="0"
-		local TotalCalc="0"
 		local i InvertColor
 
 		case ${InputType} in
 
 			"B2MB")
 				# InputValues = 0/Bytes
-				InputValues[0]=$((${InputValues[0]}/10000)) # Reveal MB form in whole number format (x100) for SHELL interpretation. EX: 1000000 = 1MB (100 in-format)
+				InputValues[0]=$((InputValues[0]/10000)) # Reveal MB form in whole number format (x100) for SHELL interpretation. EX: 1000000 = 1MB (100 in-format)
 				# Use SHELL to ascertain the E value.
 				case ${#InputValues[0]} in
 					0) echo "0.00";; # n^0 = 0
@@ -2372,14 +2371,14 @@ function RunUsageReport() {
 					InvertColor="${Invert};${BBlack};"
 				fi
 				# The average for all values added thus far. ((N3)+(N2)+(N1))/3 =Average/A
-				AvgCalc=$((((${InputValues[0]}+${InputValues[1]}+${InputValues[2]})*100))) # EX: (5+7+3)*100 =1500
+				AvgCalc=$((((InputValues[0]+InputValues[1]+InputValues[2])*100))) # EX: (5+7+3)*100 =1500
 				if [[ ${AvgCalc} -eq 0 ]]; then
 					AvgCalc="1" # Average was all zeros, thus any C value will be a gain.
 				else
-					AvgCalc=$((${AvgCalc}/3)) # EX: 1500/3 =500 [5.00]
+					AvgCalc=$((AvgCalc/3)) # EX: 1500/3 =500 [5.00]
 				fi
 				# What percent greater/lesser is C compared to A determines the arrow type. (C/A) =Gain/Loss/Trend
-				TrendCalc=$(((${InputValues[3]}*10000)/${AvgCalc})) # EX: (8*10000/500) =160 [1.60 or 60% Gain]
+				TrendCalc=$(((InputValues[3]*10000)/AvgCalc)) # EX: (8*10000/500) =160 [1.60 or 60% Gain]
 				if [[ ${TrendCalc} -eq 0 ]]; then
 					echo "${InvertColor}${Dimmed}:::PLACEHOLDER~" # Absolute zero is devoid of gain or loss.
 				elif [[ ${TrendCalc} -gt 0 ]] && [[ ${TrendCalc} -le 1 ]]; then
@@ -2471,7 +2470,7 @@ function RunUsageReport() {
 				! GetResponse "Enter a valid number (in whole MegaBytes) to flag in the report output." \
 					&& break
 				if [[ ${UserResponse} =~ ${ValidNumber} ]]; then
-					FlagValue="$((${UserResponse}*100))" # Times 100 for SHELL purposes.
+					FlagValue="$((UserResponse*100))" # Times 100 for SHELL purposes.
 					break
 				else
 					AttentionMessage "ERROR" "The value you entered \"${UserResponse}\" is not valid. Try again."
@@ -2484,7 +2483,7 @@ function RunUsageReport() {
 		# The return code was TRUE/0.
 		if SearchShards "${Target_ENDPOINT[3]}" "now-${EventTiming[0]}M" "now" "${EventTiming[1]}" "${Target_ENDPOINT[2]}"; then
 
-			if [[ ${SearchShardsReturn} != "NO SHARDS" ]] && [[ ${#SearchShardsReturn[*]} -le 9999 ]]; then
+			if [[ ${SearchShardsReturn[0]} != "NO SHARDS" ]] && [[ ${#SearchShardsReturn[*]} -le 9999 ]]; then
 
 				for ((i=${#SearchShardsReturn[*]};i>=0;i--)); do
 
@@ -2495,8 +2494,8 @@ function RunUsageReport() {
 						continue
 					fi
 
-					if [[ $(((${#SearchShardsReturn[*]}-${i}-1)%100)) -eq 0 ]] && [[ $((${#SearchShardsReturn[*]}-${i}-1)) -ne 0 ]]; then
-						! GetYorN "Shown $((${#SearchShardsReturn[*]}-${i}-1))/${#SearchShardsReturn[*]} - Show more?" "Yes" "5" \
+					if [[ $(((${#SearchShardsReturn[*]}-i-1)%100)) -eq 0 ]] && [[ $((${#SearchShardsReturn[*]}-i-1)) -ne 0 ]]; then
+						! GetYorN "Shown $((${#SearchShardsReturn[*]}-i-1))/${#SearchShardsReturn[*]} - Show more?" "Yes" "5" \
 							&& ClearLines "2" \
 							&& break
 						ClearLines "2"
@@ -2515,46 +2514,46 @@ function RunUsageReport() {
 					UDPTXMB[${i}]=$(CalculateMetrics "B2MB" "${EachReportLine[6]}") # Bytes in MegaByte (MB) for TX UDP.
 
 					# Tracking for final totals.
-					let FinalTotals[0]+=${EachReportLine[1]} # Bytes cumulative for Total.
-					let FinalTotals[1]+=${EachReportLine[2]} # Bytes cumulative for Bill.
-					let FinalTotals[2]+=${EachReportLine[3]} # Bytes cumulative for TCPRX.
-					let FinalTotals[3]+=${EachReportLine[4]} # Bytes cumulative for TCPTX.
-					let FinalTotals[4]+=${EachReportLine[5]} # Bytes cumulative for UDPRX.
-					let FinalTotals[5]+=${EachReportLine[6]} # Bytes cumulative for UDPTX.
+					(( FinalTotals[0]+=EachReportLine[1] )) # Bytes cumulative for Total.
+					(( FinalTotals[1]+=EachReportLine[2] )) # Bytes cumulative for Bill.
+					(( FinalTotals[2]+=EachReportLine[3] )) # Bytes cumulative for TCPRX.
+					(( FinalTotals[3]+=EachReportLine[4] )) # Bytes cumulative for TCPTX.
+					(( FinalTotals[4]+=EachReportLine[5] )) # Bytes cumulative for UDPRX.
+					(( FinalTotals[5]+=EachReportLine[6] )) # Bytes cumulative for UDPTX.
 
 					# Perform analysis of the trending.
 					TrendStore[0]="${TotalMB[${i}]}"
-					TrendStore[1]="${TotalMB[$((${i}+1))]:-${TotalMB[${i}]}}"
-					TrendStore[2]="${TotalMB[$((${i}+2))]:-${TotalMB[$((${i}+1))]:-${TotalMB[${i}]}}}"
-					TrendStore[3]="${TotalMB[$((${i}+3))]:-${TotalMB[$((${i}+2))]:-${TotalMB[$((${i}+1))]:-${TotalMB[${i}]}}}}"
+					TrendStore[1]="${TotalMB[$((i+1))]:-${TotalMB[${i}]}}"
+					TrendStore[2]="${TotalMB[$((i+2))]:-${TotalMB[$((i+1))]:-${TotalMB[${i}]}}}"
+					TrendStore[3]="${TotalMB[$((i+3))]:-${TotalMB[$((i+2))]:-${TotalMB[$((i+1))]:-${TotalMB[${i}]}}}}"
 					TrendTotalMB=$(CalculateMetrics "TREND" "${TrendStore[3]} ${TrendStore[2]} ${TrendStore[1]} ${TrendStore[0]}") # Ascertain TotalMB Trend.
 					TrendStore[0]="${BillMB[${i}]}"
-					TrendStore[1]="${BillMB[$((${i}+1))]:-${BillMB[${i}]}}"
-					TrendStore[2]="${BillMB[$((${i}+2))]:-${BillMB[$((${i}+1))]:-${BillMB[${i}]}}}"
-					TrendStore[3]="${BillMB[$((${i}+3))]:-${BillMB[$((${i}+2))]:-${BillMB[$((${i}+1))]:-${BillMB[${i}]}}}}"
+					TrendStore[1]="${BillMB[$((i+1))]:-${BillMB[${i}]}}"
+					TrendStore[2]="${BillMB[$((i+2))]:-${BillMB[$((i+1))]:-${BillMB[${i}]}}}"
+					TrendStore[3]="${BillMB[$((i+3))]:-${BillMB[$((i+2))]:-${BillMB[$((i+1))]:-${BillMB[${i}]}}}}"
 					TrendBillMB=$(CalculateMetrics "TREND" "${TrendStore[3]} ${TrendStore[2]} ${TrendStore[1]} ${TrendStore[0]}") # Ascertain BillMB Trend.
 					TrendStore[0]="${TCPTXMB[${i}]}"
-					TrendStore[1]="${TCPTXMB[$((${i}+1))]:-${TCPTXMB[${i}]}}"
-					TrendStore[2]="${TCPTXMB[$((${i}+2))]:-${TCPTXMB[$((${i}+1))]:-${TCPTXMB[${i}]}}}"
-					TrendStore[3]="${TCPTXMB[$((${i}+3))]:-${TCPTXMB[$((${i}+2))]:-${TCPTXMB[$((${i}+1))]:-${TCPTXMB[${i}]}}}}"
+					TrendStore[1]="${TCPTXMB[$((i+1))]:-${TCPTXMB[${i}]}}"
+					TrendStore[2]="${TCPTXMB[$((i+2))]:-${TCPTXMB[$((i+1))]:-${TCPTXMB[${i}]}}}"
+					TrendStore[3]="${TCPTXMB[$((i+3))]:-${TCPTXMB[$((i+2))]:-${TCPTXMB[$((i+1))]:-${TCPTXMB[${i}]}}}}"
 					TrendTCPTXMB=$(CalculateMetrics "TREND" "${TrendStore[3]} ${TrendStore[2]} ${TrendStore[1]} ${TrendStore[0]}") # Ascertain TCPRXMB Trend.
 					TrendStore[0]="${TCPRXMB[${i}]}"
-					TrendStore[1]="${TCPRXMB[$((${i}+1))]:-${TCPRXMB[${i}]}}"
-					TrendStore[2]="${TCPRXMB[$((${i}+2))]:-${TCPRXMB[$((${i}+1))]:-${TCPRXMB[${i}]}}}"
-					TrendStore[3]="${TCPRXMB[$((${i}+3))]:-${TCPRXMB[$((${i}+2))]:-${TCPRXMB[$((${i}+1))]:-${TCPRXMB[${i}]}}}}"
+					TrendStore[1]="${TCPRXMB[$((i+1))]:-${TCPRXMB[${i}]}}"
+					TrendStore[2]="${TCPRXMB[$((i+2))]:-${TCPRXMB[$((i+1))]:-${TCPRXMB[${i}]}}}"
+					TrendStore[3]="${TCPRXMB[$((i+3))]:-${TCPRXMB[$((i+2))]:-${TCPRXMB[$((i+1))]:-${TCPRXMB[${i}]}}}}"
 					TrendTCPRXMB=$(CalculateMetrics "TREND" "${TrendStore[3]} ${TrendStore[2]} ${TrendStore[1]} ${TrendStore[0]}") # Ascertain TCPTXMB Trend.
 					TrendStore[0]="${UDPRXMB[${i}]}"
-					TrendStore[1]="${UDPRXMB[$((${i}+1))]:-${UDPRXMB[${i}]}}"
-					TrendStore[2]="${UDPRXMB[$((${i}+2))]:-${UDPRXMB[$((${i}+1))]:-${UDPRXMB[${i}]}}}"
-					TrendStore[3]="${UDPRXMB[$((${i}+3))]:-${UDPRXMB[$((${i}+2))]:-${UDPRXMB[$((${i}+1))]:-${UDPRXMB[${i}]}}}}"
+					TrendStore[1]="${UDPRXMB[$((i+1))]:-${UDPRXMB[${i}]}}"
+					TrendStore[2]="${UDPRXMB[$((i+2))]:-${UDPRXMB[$((i+1))]:-${UDPRXMB[${i}]}}}"
+					TrendStore[3]="${UDPRXMB[$((i+3))]:-${UDPRXMB[$((i+2))]:-${UDPRXMB[$((i+1))]:-${UDPRXMB[${i}]}}}}"
 					TrendUDPRXMB=$(CalculateMetrics "TREND" "${TrendStore[3]} ${TrendStore[2]} ${TrendStore[1]} ${TrendStore[0]}") # Ascertain UDPRXMB Trend.
 					TrendStore[0]="${UDPTXMB[${i}]}"
-					TrendStore[1]="${UDPTXMB[$((${i}+1))]:-${UDPTXMB[${i}]}}"
-					TrendStore[2]="${UDPTXMB[$((${i}+2))]:-${UDPTXMB[$((${i}+1))]:-${UDPTXMB[${i}]}}}"
-					TrendStore[3]="${UDPTXMB[$((${i}+3))]:-${UDPTXMB[$((${i}+2))]:-${UDPTXMB[$((${i}+1))]:-${UDPTXMB[${i}]}}}}"
+					TrendStore[1]="${UDPTXMB[$((i+1))]:-${UDPTXMB[${i}]}}"
+					TrendStore[2]="${UDPTXMB[$((i+2))]:-${UDPTXMB[$((i+1))]:-${UDPTXMB[${i}]}}}"
+					TrendStore[3]="${UDPTXMB[$((i+3))]:-${UDPTXMB[$((i+2))]:-${UDPTXMB[$((i+1))]:-${UDPTXMB[${i}]}}}}"
 					TrendUDPTXMB=$(CalculateMetrics "TREND" "${TrendStore[3]} ${TrendStore[2]} ${TrendStore[1]} ${TrendStore[0]}") # Ascertain UDPTXMB Trend.
 
-					PrintHelper "BOXITEMB" "INC$(printf "%04d" "$((${#SearchShardsReturn[*]}-${i}))")" "${Normal}:::${EachReportLine[0]/T/:}" "${TrendTotalMB/PLACEHOLDER/${TotalMB[${i}]}},${TrendBillMB/PLACEHOLDER/${BillMB[${i}]}},${TrendTCPRXMB/PLACEHOLDER/${TCPRXMB[${i}]}},${TrendTCPTXMB/PLACEHOLDER/${TCPTXMB[${i}]}},${TrendUDPRXMB/PLACEHOLDER/${UDPRXMB[${i}]}},${TrendUDPTXMB/PLACEHOLDER/${UDPTXMB[${i}]}}"
+					PrintHelper "BOXITEMB" "INC$(printf "%04d" "$((${#SearchShardsReturn[*]}-i))")" "${Normal}:::${EachReportLine[0]/T/:}" "${TrendTotalMB/PLACEHOLDER/${TotalMB[${i}]}},${TrendBillMB/PLACEHOLDER/${BillMB[${i}]}},${TrendTCPRXMB/PLACEHOLDER/${TCPRXMB[${i}]}},${TrendTCPTXMB/PLACEHOLDER/${TCPTXMB[${i}]}},${TrendUDPRXMB/PLACEHOLDER/${UDPRXMB[${i}]}},${TrendUDPTXMB/PLACEHOLDER/${UDPTXMB[${i}]}}"
 
 					CheckSemaphore "MIDB"
 
@@ -2576,7 +2575,7 @@ function RunUsageReport() {
 							# Ensure this number does not go out of bounds.
 							if [[ ${UserResponse} =~ ${ValidNumber} ]] && [[ ${UserResponse} -ge 1 ]] && [[ ${UserResponse} -le ${#SearchShardsReturn[*]} ]]; then
 								DrillInc="${UserResponse}"
-								DrillTiming[0]="${SearchShardsReturn[$((${#SearchShardsReturn[*]}-${DrillInc[0]}))]%=>*}"
+								DrillTiming[0]="${SearchShardsReturn[$((${#SearchShardsReturn[*]}-DrillInc[0]))]%=>*}"
 								break
 							else
 								AttentionMessage "ERROR" "The value you entered \"${UserResponse}\" is not valid. Try again."
@@ -2589,7 +2588,7 @@ function RunUsageReport() {
 						if [[ ${DrillInc} -eq ${#SearchShardsReturn[*]} ]]; then
 							DrillTiming[1]="now"
 						else
-							DrillTiming[1]="${SearchShardsReturn[$((${#SearchShardsReturn[*]}-${DrillInc[0]}-1))]%=>*}"
+							DrillTiming[1]="${SearchShardsReturn[$((${#SearchShardsReturn[*]}-DrillInc[0]-1))]%=>*}"
 						fi
 
 						# Save the current shard information.
@@ -2602,7 +2601,7 @@ function RunUsageReport() {
 						# The return code was TRUE/0.
 						if SearchShards "GETNETWORKDRILLUSAGE" "${DrillTiming[0]}" "${DrillTiming[1]}" "${EventTiming[1]}"; then
 
-							if [[ ${SearchShardsReturn} != "NO SHARDS" ]]; then
+							if [[ ${SearchShardsReturn[0]} != "NO SHARDS" ]]; then
 
 								for ((i=${#SearchShardsReturn[*]};i>=0;i--)); do
 
@@ -2639,7 +2638,7 @@ function RunUsageReport() {
 						else
 
 							# Conditional catches.
-							[[ ${SearchShardsReturn} == "NO SHARDS" ]] \
+							[[ ${SearchShardsReturn[0]} == "NO SHARDS" ]] \
 								&& AttentionMessage "WARNING" "The search returned ZERO matching shards/events."
 
 						fi
@@ -2662,7 +2661,7 @@ function RunUsageReport() {
 			else
 
 				# Conditional catches.
-				[[ ${SearchShardsReturn} == "NO SHARDS" ]] \
+				[[ ${SearchShardsReturn[0]} == "NO SHARDS" ]] \
 					&& AttentionMessage "WARNING" "The search returned ZERO matching shards/events."
 				[[ ${#SearchShardsReturn[*]} -gt 9999 ]] \
 					&& AttentionMessage "WARNING" "The search returned too many matching shards/events (${#SearchShardsReturn[*]}). Please narrow the search."
@@ -2700,22 +2699,22 @@ function RunLastActivityReport() {
 		EventTiming[0]="$(date +"%s")" # Epoch time for now.
 		ReportBegin=( "0 Days Ago [NOW]" "1 Day Ago" "7 Days Ago" "14 Days Ago" "30 Days Ago" "60 Days Ago" "90 Days Ago" )
 		for ((i=0;i<${#ReportBegin[*]};i++)); do
-			ReportBegin[${i}]="${ReportBegin[${i}]} ($(date -d @$((${EventTiming[0]}-(${ReportBegin[${i}]//\ */}*86400)))))"
+			ReportBegin[${i}]="${ReportBegin[${i}]} ($(date -d @$((EventTiming[0]-(${ReportBegin[${i}]//\ */}*86400)))))"
 		done
 		! GetSelection "How many days back should the report begin?" "${ReportBegin[*]}" \
 			&& break 2
-		EventTiming[1]="$((${EventTiming[0]}-(${UserResponse//\ */}*86400)))" # The epoch start.
+		EventTiming[1]="$((EventTiming[0]-(${UserResponse//\ */}*86400)))" # The epoch start.
 
 		# The user needs to select how many days in arears to span the search.
 		ReportDuration=( "1 Day Back" "7 Days Back" "14 Days Back" "30 Days Back" "60 Days Back" "90 Days Back" "365 Days Back" )
 		for ((i=0;i<${#ReportDuration[*]};i++)); do
-			ReportDuration[${i}]="${ReportDuration[${i}]} ($(date -d @$((${EventTiming[1]}-(${ReportDuration[${i}]//\ */}*86400)))))"
+			ReportDuration[${i}]="${ReportDuration[${i}]} ($(date -d @$((EventTiming[1]-(${ReportDuration[${i}]//\ */}*86400)))))"
 		done
 		! GetSelection "How many days should the report contain?" "${ReportDuration[*]}" \
 			&& continue
 		EventTiming[2]="${UserResponse//\ */}" # The days requested factor.
-		EventTiming[3]="$((${EventTiming[2]}*86400))" # The days requested factor in seconds.
-		EventTiming[4]="$((${EventTiming[1]}-${EventTiming[3]}))" # The beginning of the search in epoch.
+		EventTiming[3]="$((EventTiming[2]*86400))" # The days requested factor in seconds.
+		EventTiming[4]="$((EventTiming[1]-EventTiming[3]))" # The beginning of the search in epoch.
 
 		AttentionMessage "GENERALINFO" "Last activity is determined by data flow on an Endpoint's control channel."
 		AttentionMessage "GENERALINFO" "Historical information trails current time by approximately two hours. [NOW=$(date -u)]"
@@ -2733,9 +2732,9 @@ function RunLastActivityReport() {
 					IFS=','; EachReportLine=( ${SearchShardsReturn[${i}]//=>/,} ); IFS=$'\n'
 					EachReportLine[1]="$(date -d "${EachReportLine[1]}" "+%s")" # Time converted to epoch seconds.
 					TotalSeconds="${EventTiming[0]}-${EachReportLine[1]}"
-					DeltaDays="$(((${EventTiming[0]}-${EachReportLine[1]})/86400))"
-					DeltaHours="$((((${EventTiming[0]}-${EachReportLine[1]})/3600)%24))"
-					DeltaMinutes="$(((${EventTiming[0]}-${EachReportLine[1]})%3600/60))"
+					DeltaDays="$(((EventTiming[0]-EachReportLine[1])/86400))"
+					DeltaHours="$((((EventTiming[0]-EachReportLine[1])/3600)%24))"
+					DeltaMinutes="$(((EventTiming[0]-EachReportLine[1])%3600/60))"
 					PrintHelper "BOXITEMA" "EPT$(printf "%04d" "${i}")" "${Normal}:::$(date -ud @${EachReportLine[1]} +'%Y/%m/%d %H:%M')" "${EachReportLine[0]}=>${IconStash[12]} $(printf "%02dd %02dh %02dm %02ds" "${DeltaDays:-0}" "${DeltaHours:-0}" "${DeltaMinutes:-0}" "${DeltaSeconds:-0}")"
 
 				done
@@ -2812,9 +2811,8 @@ function RunEventReport() {
 		local FromState ToState
 		local TotalSeconds DeltaDays DeltaHours DeltaMinutes DeltaSeconds
 		local DeltaDistance
-		local FromIPPORT ToIPORT DeltaIPPORT DeltaIP DeltaPORT
+		local FromIPPORT DeltaIPPORT DeltaIP DeltaPORT
 		local FromCityCountry ToCityCountry DeltaCityCountry DeltaCity DeltaCountry
-		local InitDate EndDate TotalDays
 
 		case ${MetricsType} in
 			"DELTASTATE")
@@ -2823,23 +2821,23 @@ function RunEventReport() {
 				if [[ "${2}" =~ "Offline" ]]; then
 					ToState="OFFLINE"
 					ReturnCode="1"
-					let TallyOffline[0]++
+					(( TallyOffline[0]++ ))
 				elif [[ "${2}" =~ "Online" ]]; then
 					ToState="ONLINE"
 					ReturnCode="2"
-					let TallyOnline[0]++
+					(( TallyOnline[0]++ ))
 				elif [[ "${2}" =~ "fstration" ]] || [[ "${2}" =~ "Register" ]] || [[ "${2}" =~ "CSR request" ]] || [[ "${2}" =~ "VTC Provisioning" ]]; then
 					ToState="PROVISIONING"
 					PrintHeader="   ${IconStash[13]}  "
 					PrintTopic=":::PROVISIONING INFO"
 					ReturnCode="3"
-					let TallyProvision[0]++
+					(( TallyProvision[0]++ ))
 				else
 					ToState="STATUS"
 					PrintHeader="   ${IconStash[10]} "
 					PrintTopic=":::STATUS INFO"
 					ReturnCode="4"
-					let TallyStatus[0]++
+					(( TallyStatus[0]++ ))
 				fi
 				# Analyze.
 				if [[ ${ToState} == "PROVISIONING" ]]; then
@@ -2848,8 +2846,8 @@ function RunEventReport() {
 				elif [[ ${ToState} == "STATUS" ]]; then
 					CheckSemaphore "MIDA"
 					PrintHelper "BOXITEMASUB" "${PrintHeader}" "${PrintTopic}" "${2}"
-				elif [[ ${FromState} == ${ToState} ]] || [[ ${FromState} == ${ToState} ]]; then
-					let ReturnCode+=10
+				elif [[ ${FromState} == "${ToState}" ]] || [[ ${FromState} == "${ToState}" ]]; then
+					(( ReturnCode+=10 ))
 				fi
 				return ${ReturnCode}
 			;;
@@ -2931,11 +2929,11 @@ function RunEventReport() {
 				DeltaIP[1]="${ToIPPORT[0]:-UNKNOWN}" # ToIP
 				DeltaPORT[0]="${FromIPPORT[1]:-UNKNOWN}" # FromPORT
 				DeltaPORT[1]="${ToIPPORT[1]:-UNKNOWN}" # ToPORT
-				if [[ ${DeltaIP[0]} != ${DeltaIP[1]} ]] && [[ ${DeltaPORT[0]} != ${DeltaPORT[1]} ]]; then
+				if [[ ${DeltaIP[0]} != "${DeltaIP[1]}" ]] && [[ ${DeltaPORT[0]} != "${DeltaPORT[1]}" ]]; then
 					DeltaIPPORT="IP and PORT Changed [${DeltaIP[0]}:${DeltaPORT[0]} > ${DeltaIP[1]}:${DeltaPORT[1]}]"
-				elif [[ ${DeltaIP[0]} != ${DeltaIP[1]} ]] && [[ ${DeltaPORT[0]} == ${DeltaPORT[1]} ]]; then
+				elif [[ ${DeltaIP[0]} != "${DeltaIP[1]}" ]] && [[ ${DeltaPORT[0]} == "${DeltaPORT[1]}" ]]; then
 					DeltaIPPORT="IP Changed [${DeltaIP[0]}:${DeltaPORT[0]} > ${DeltaIP[1]}:${DeltaPORT[1]}]"
-				elif [[ ${DeltaIP[0]} == ${DeltaIP[1]} ]] && [[ ${DeltaPORT[0]} != ${DeltaPORT[1]} ]]; then
+				elif [[ ${DeltaIP[0]} == "${DeltaIP[1]}" ]] && [[ ${DeltaPORT[0]} != "${DeltaPORT[1]}" ]]; then
 					#DeltaIPPORT="PORT Changed [${DeltaIP[0]}:${DeltaPORT[0]} > ${DeltaIP[1]}:${DeltaPORT[1]}]"
 					return 0
 				else
@@ -2952,11 +2950,11 @@ function RunEventReport() {
 				DeltaCity[1]="${ToCityCountry[0]:-UNKNOWN}" # ToCity
 				DeltaCountry[0]="${FromCityCountry[1]:-UNKNOWN}" # FromCountry
 				DeltaCountry[1]="${ToCityCountry[1]:-UNKNOWN}" # ToCountry
-				if [[ ${DeltaCity[0]} != ${DeltaCity[1]} ]] && [[ ${DeltaCountry[0]} != ${DeltaCountry[1]} ]]; then
+				if [[ ${DeltaCity[0]} != "${DeltaCity[1]}" ]] && [[ ${DeltaCountry[0]} != "${DeltaCountry[1]}" ]]; then
 					DeltaCityCountry="City and Country Changed [${DeltaCity[0]}/${DeltaCountry[0]} > ${DeltaCity[1]}/${DeltaCountry[1]}]"
-				elif [[ ${DeltaCity[0]} != ${DeltaCity[1]} ]] && [[ ${DeltaCountry[0]} == ${DeltaCountry[1]} ]]; then
+				elif [[ ${DeltaCity[0]} != "${DeltaCity[1]}" ]] && [[ ${DeltaCountry[0]} == "${DeltaCountry[1]}" ]]; then
 					DeltaCityCountry="City Changed [${DeltaCity[0]}/${DeltaCountry[0]} > ${DeltaCity[1]}/${DeltaCountry[1]}]"
-				elif [[ ${DeltaCity[0]} == ${DeltaCity[1]} ]] && [[ ${DeltaCountry[0]} != ${DeltaCountry[1]} ]]; then
+				elif [[ ${DeltaCity[0]} == "${DeltaCity[1]}" ]] && [[ ${DeltaCountry[0]} != "${DeltaCountry[1]}" ]]; then
 					DeltaCityCountry="Country Changed [${DeltaCity[0]}/${DeltaCountry[0]} > ${DeltaCity[1]}/${DeltaCountry[1]}]"
 				else
 					return 0
@@ -3009,10 +3007,9 @@ function RunEventReport() {
 	}
 
 	# 1/TARGETUUID
-	local i ReportBegin ReportDuration SearchShardsReturn EachReportLine LastEventEpoch EventDeltaTime LastEventState LastEventIPPORT LastEventCityState LastEventLatLon
+	local i ReportBegin ReportDuration SearchShardsReturn EachReportLine LastEventEpoch EventDeltaTime LastEventState LastEventIPPORT LastEventLatLon
 	local OutputResponse OutputHeaders OutputJSON
 	local EventTiming # 0/CUREPOCHSEC 1/REQDAYS 2/REQSEC 3/BEGINEPOCHSEC
-	local ReportStats # 0/TOTALONLINE 1/TOTALOFFLINE 2/TOTALPROVISION 3/TOTALFLAGS
 	local Target_ENDPOINT[0]="${1}"
 	SemaphoreState="FALSE"
 
@@ -3044,8 +3041,8 @@ function RunEventReport() {
 		! GetSelection "How many days should the report on \"${Target_ENDPOINT[1]}\" contain?" "${ReportDuration[*]}" \
 			&& return 0
 		EventTiming[1]="${UserResponse//\ */}" # The days requested factor.
-		EventTiming[2]="$((${EventTiming[1]}*86400))" # The days requested factor in seconds.
-		EventTiming[3]="$((${EventTiming[0]}-${EventTiming[2]}))" # The beginning of the search in epoch.
+		EventTiming[2]="$((EventTiming[1]*86400))" # The days requested factor in seconds.
+		EventTiming[3]="$((EventTiming[0]-EventTiming[2]))" # The beginning of the search in epoch.
 
 		AttentionMessage "GENERALINFO" "Searching and generating (${EventTiming[1]} Days) Endpoint Events report for \"${Target_ENDPOINT[1]}\"."
 		# The return code was TRUE/0.
@@ -3055,7 +3052,7 @@ function RunEventReport() {
 
 				for ((i=0;i<${#SearchShardsReturn[*]};i++)); do
 
-					if [[ $((${i}%100)) -eq 0 ]] && [[ ${i} -ne 0 ]]; then
+					if [[ $((i%100)) -eq 0 ]] && [[ ${i} -ne 0 ]]; then
 						! GetYorN "Shown ${i}/${#SearchShardsReturn[*]} - Show more?" "Yes" "5" \
 							&& ClearLines "2" \
 							&& CheckSemaphore "END" \
@@ -3095,27 +3092,27 @@ function RunEventReport() {
 					case "${EachReportLine[1]}" in
 						1)
 							LastEventState="OFFLINE"
-							let TallyOffline[1]+=${EventDeltaTime[0]}
+							(( TallyOffline[1]+=EventDeltaTime[0] ))
 						;;
 						11)
 							LastEventState="^LINKED-OFFLINE"
-							let TallyOffline[1]+=${EventDeltaTime[0]}
+							(( TallyOffline[1]+=EventDeltaTime[0] ))
 						;;
 						2)
 							LastEventState="ONLINE"
-							let TallyOnline[1]+=${EventDeltaTime[0]}
+							(( TallyOnline[1]+=EventDeltaTime[0] ))
 						;;
 						12)
 							LastEventState="^LINKED-ONLINE"
-							let TallyOnline[1]+=${EventDeltaTime[0]}
+							(( TallyOnline[1]+=EventDeltaTime[0] ))
 						;;
 						3|13)
 							LastEventState="PROVISIONING"
-							let TallyProvision[1]+=${EventDeltaTime[0]}
+							(( TallyProvision[1]+=EventDeltaTime[0] ))
 						;;
 						4|14)
 							LastEventState="STATUS"
-							let TallyStatus[1]+=${EventDeltaTime[0]}
+							(( TallyStatus[1]+=EventDeltaTime[0] ))
 						;;
 					esac
 					LastEventIPPORT="${EachReportLine[2]}"
@@ -3125,10 +3122,10 @@ function RunEventReport() {
 					CheckSemaphore "MIDB"
 
 					# Printing for the event.
-					PrintHelper "BOXITEMA" "EVT$(printf "%04d" "$((${#SearchShardsReturn[*]}-${i}))")" "${LastEventState#*-}:::" "$(printf "%-15s" "${LastEventState}") at $(date -d @${LastEventEpoch} '+%d/%m/%y %T %Z')=>${IconStash[12]} ${EventDeltaTime[1]}"
+					PrintHelper "BOXITEMA" "EVT$(printf "%04d" "$((${#SearchShardsReturn[*]}-i))")" "${LastEventState#*-}:::" "$(printf "%-15s" "${LastEventState}") at $(date -d @${LastEventEpoch} '+%d/%m/%y %T %Z')=>${IconStash[12]} ${EventDeltaTime[1]}"
 
 					# This is the last state - the bottom of the report.
-					if [[ $((${#SearchShardsReturn[*]}-${i})) -eq 1 ]]; then
+					if [[ $((${#SearchShardsReturn[*]}-i)) -eq 1 ]]; then
 						CalculateMetrics "DELTACITYCOUNTRY" "UNKNOWN" "${EachReportLine[3]}"
 						CalculateMetrics "DELTAIPPORT" "UNKNOWN" "${EachReportLine[2]}"
 						CheckSemaphore "END"
@@ -3410,7 +3407,7 @@ function SetObjects() {
 				DATASyntax="--data '{\"ids\":["
 				for ((i=0;i<${#AllUUIDs[*]};i++)); do
 					# If at the end of the array, close it up.
-					if [[ $((${i}+1)) -eq ${#AllUUIDs[*]} ]]; then
+					if [[ $((i+1)) -eq ${#AllUUIDs[*]} ]]; then
 						DATASyntax="${DATASyntax}\""${AllUUIDs[${i}]##*=>}"\"]}'"
 					else
 						DATASyntax="${DATASyntax}\""${AllUUIDs[${i}]##*=>}"\","
@@ -3425,7 +3422,7 @@ function SetObjects() {
 				(for ((i=0;i<3;i++)); do sleep 1 && echo -n '.'; done)
 				ProcessResponse "${SyntaxFlip} ${DATASyntax}" "${APIRESTURL}/networks/${Target_NETWORK[0]}/endpointGroups/${EndpointGroupUUID}/${URLTrail}" "202"
 				if [[ $? -ne 0 ]] && [[ ${MaxTries} -ge 1 ]]; then
-					let MaxTries--
+					(( MaxTries-- ))
 					echo -n 'R'
 				elif [[ $? -ne 0 ]] && [[ ${MaxTries} -lt 1 ]]; then
 					echo '.FAILED!'
@@ -3484,7 +3481,7 @@ function SetObjects() {
 				DATASyntax="--data '{\"ids\":["
 				for ((i=0;i<${#AllUUIDs[*]};i++)); do
 					# If at the end of the array, close it up.
-					if [[ $((${i}+1)) -eq ${#AllUUIDs[*]} ]]; then
+					if [[ $((i+1)) -eq ${#AllUUIDs[*]} ]]; then
 						DATASyntax="${DATASyntax}\""${AllUUIDs[${i}]##*=>}"\"]}'"
 					else
 						DATASyntax="${DATASyntax}\""${AllUUIDs[${i}]##*=>}"\","
@@ -3499,7 +3496,7 @@ function SetObjects() {
 				(for ((i=0;i<3;i++)); do sleep 1 && echo -n '.'; done)
 				ProcessResponse "${SyntaxFlip} ${DATASyntax}" "${APIRESTURL}/networks/${Target_NETWORK[0]}/appWans/${AppWANUUID}/${URLTrail}" "202"
 				if [[ $? -ne 0 ]] && [[ ${MaxTries} -ge 1 ]]; then
-					let MaxTries--
+					(( MaxTries-- ))
 					echo -n 'R'
 				elif [[ $? -ne 0 ]] && [[ ${MaxTries} -lt 1 ]]; then
 					echo '.FAILED!'
@@ -3546,7 +3543,7 @@ function SetObjects() {
 					)
 					[[ ${SetObjectReturn:-ERROR} =~ "ERROR" ]] \
 						&& return 1
-					DATASyntax="--data '"${SetObjectReturn}"'"
+					DATASyntax="--data '"${SetObjectReturn[0]}"'"
 				;;
 			esac
 
@@ -3696,7 +3693,7 @@ function CreateInternetServices() {
 
 	# First, create the AppWAN the Services will reside in.
 	AttentionMessage "GREENINFO" "Creating AppWAN \"${Target_APPWANNAME[0]}\"."
-	if SetObjects "CREATEAPPWAN" "${Target_APPWANNAME}"; then
+	if SetObjects "CREATEAPPWAN" "${Target_APPWANNAME[0]}"; then
 		Target_APPWANNAME[1]="${SetObjectReturn##*=>}" # The UUID of the AppWAN.
 	else
 		AttentionMessage "ERROR" "FAILED! Request to create AppWAN \"${Target_APPWANNAME[0]}\" did not complete. See message below."
@@ -3707,11 +3704,11 @@ function CreateInternetServices() {
 
 	# Next, create each network/CIDR listed in the AllInternetServices array.
 	for ((i=0;i<${#AllInternetServices[*]};i++)); do
-		FullName="${Target_APPWANNAME[0]} ${AlphaArray[$((${i}/${#AlphaArray[*]}))]}${AlphaArray[$((${i}%${#AlphaArray[*]}))]}" # Internet Proxy Group-XXXX [A-Z][A-Z]
+		FullName="${Target_APPWANNAME[0]} ${AlphaArray[$((i/${#AlphaArray[*]}))]}${AlphaArray[$((i%${#AlphaArray[*]}))]}" # Internet Proxy Group-XXXX [A-Z][A-Z]
 		GatewayIP="${AllInternetServices[${i}]%%\/*}" # WWW.XXX.YYY.ZZZ
 		InterceptIP="${AllInternetServices[${i}]%%\/*}" # WWW.XXX.YYY.ZZZ
 		InterceptCIDR="${AllInternetServices[${i}]##*\/}" # [1-32]
-		AttentionMessage "GREENINFO" "[$((${i}+1))/${#AllInternetServices[*]}] Adding Service \"${FullName}\". [INGRESS > EGRESS : ${InterceptIP}/${InterceptCIDR} > ${GatewayIP}/${InterceptCIDR}]"
+		AttentionMessage "GREENINFO" "[$((i+1))/${#AllInternetServices[*]}] Adding Service \"${FullName}\". [INGRESS > EGRESS : ${InterceptIP}/${InterceptCIDR} > ${GatewayIP}/${InterceptCIDR}]"
 		if SetObjects "CREATENETSERVICE" "${Target_GATEWAY[0]}" "${FullName}" "${InterceptIP}" "${GatewayIP}" "${InterceptCIDR}"; then
 			ServicesAddedArray=( "${SetObjectReturn##*=>}" ${ServicesAddedArray[*]} )
 		else
@@ -3834,7 +3831,7 @@ function ModifyEndpointAssociations() {
 				if [[ "${EndpointSelectorNetwork[${i}]}" == "${EndpointSelectorGroup[${j}]}" ]]; then
 					break
 				# Signals the end of the toggle array, thus no match - add and change the header of the Endpoint (NOTASSOCIATED:::ZZZ).
-				elif [[ $((${j}+1)) -eq ${#EndpointSelectorGroup[*]} ]]; then
+				elif [[ $((j+1)) -eq ${#EndpointSelectorGroup[*]} ]]; then
 					EndpointSelectorToggle=( ${EndpointSelectorToggle[*]} "NOTASSOCIATED:::${EndpointSelectorNetwork[${i}]}" )
 				fi
 			done
@@ -3853,7 +3850,7 @@ function ModifyEndpointAssociations() {
 				&& return 0
 		fi
 
-		Target_ENDPOINT="${UserResponse}"
+		Target_ENDPOINT=( "${UserResponse}" )
 		if [[ ${UserResponse} == "BACK" ]]; then
 
 			unset Target_ASSOCIATION EndpointSelectorGroup EndpointSelectorToggle AllEndpointsAddition AllEndpointGroupsAddition AllEndpointsDeletion AllEndpointGroupsDeletion
@@ -3900,8 +3897,7 @@ function ModifyEndpointAssociations() {
 				&& echo "${AllEndpointsDeletion[*]}"
 
 			# Take no action, yet save their current settings by simply looping back, if the user is not ready.
-			GetYorN "Ready?" "No"
-			if [[ $? -eq 0 ]]; then
+			if GetYorN "Ready?" "No"; then
 				if [[ ${#AllEndpointGroupsAddition[*]} -gt 0 ]]; then
 					AttentionMessage "GREENINFO" "Adding selected EndpointGroups to ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\"."
 					SetObjects "ADDENDPOINTGROUPTO${Target_ASSOCIATION[1]}" "${AllEndpointGroupsAddition[*]}" "${Target_ASSOCIATION[2]}" \
@@ -4132,7 +4128,8 @@ function BulkCreateEndpoints() {
 
 	function AttemptEmail() {
 		# Common context.
-		local Target_CONTEXT="$(date +'%s'),${Target_ENDPOINTNAME},${Target_ENDPOINTTYPE},${Target_NETWORK},${Target_GEOREGION},${EndpointGroupState},${AppWANState}"
+		local Target_CONTEXT
+		Target_CONTEXT="$(date +'%s'),${Target_ENDPOINTNAME},${Target_ENDPOINTTYPE},${Target_NETWORK[0]},${Target_GEOREGION},${EndpointGroupState},${AppWANState}"
 
 		if [[ ${Target_EMAIL[0]} != "NOEMAIL" ]]; then
 
@@ -4143,14 +4140,14 @@ function BulkCreateEndpoints() {
 
 				if ! SetObjects "EMAILALERT" "${StoredAttributes[0]:-ERRNOUUID}" "${Target_EMAIL[0]}" "${Target_EMAIL[1]}"; then
 
-					let OutputCounter[5]++
+					(( OutputCounter[5]++ ))
 					AttentionMessage "ERROR" " ┗━━Email alert transmission failed. Endpoint remains available."
 					echo "${SetObjectReturn:-NO MESSAGE RETURNED}"
 					echo "${Target_CONTEXT},${StoredAttributes[0]:-UUID_NA},${StoredAttributes[1]:-REGKEY:NA},FAIL:${Target_EMAIL[0]}" >> ${OutputFile}
 
 				else
 
-					let OutputCounter[4]++
+					(( OutputCounter[4]++ ))
 					AttentionMessage "VALIDATED" " ┗━━Email alert transmission succeeded with registration information and message \"${Target_EMAIL[1]:0:75}\"."
 					echo "${Target_CONTEXT},${StoredAttributes[0]:-UUID_NA},${StoredAttributes[1]:-REGKEY:NA},SENT:${Target_EMAIL[0]}" >> ${OutputFile}
 
@@ -4158,7 +4155,7 @@ function BulkCreateEndpoints() {
 
 			else
 
-				let OutputCounter[5]++
+				(( OutputCounter[5]++ ))
 				AttentionMessage "ERROR" " ┗━━Email alert transmission failed due to badly formed address. Endpoint remains available."
 				echo "${Target_CONTEXT},${StoredAttributes[0]:-UUID_NA},${StoredAttributes[1]:-REGKEY:NA},BADEMAIL:${Target_EMAIL[0]}" >> ${OutputFile}
 
@@ -4188,7 +4185,7 @@ function BulkCreateEndpoints() {
 
 			# Deconstruction of the line.
 			IFS=',' # Lists are comma delimited arrays.
-			let OutputCounter[0]++ # Count for every line.
+			(( OutputCounter[0]++ )) # Count for every line.
 			EachLine=( ${InputLine} ) # Insert into array.
 			Target_ENDPOINTNAME="${EachLine[0]:-MISSINGNAME}" # Local variable - TEXT.
 			IFS=$'\n' # Reset field separator.
@@ -4208,7 +4205,7 @@ function BulkCreateEndpoints() {
 					return 3 # Not shown.
 				;;
 				*)
-					let OutputCounter[1]++ # All lines that made it here count to be processed.
+					(( OutputCounter[1]++ )) # All lines that made it here count to be processed.
 				;;
 			esac
 
@@ -4226,13 +4223,13 @@ function BulkCreateEndpoints() {
 
 			# Specific to parsing the AllEndpointGroups and AllAppWANs arrays.
 			IFS=';' # AllEndpointGroups and AllAppWANs lists are semi-colon delimited arrays.
-			if [[ ${AllEndpointGroups} != "NOENDPOINTGROUPS" ]]; then
+			if [[ ${AllEndpointGroups[0]} != "NOENDPOINTGROUPS" ]]; then
 				AllEndpointGroups=( ${AllEndpointGroups} )
 				for ((i=0;i<${#AllEndpointGroups[*]};i++)); do AllEndpointGroupsShort[${i}]="...${AllEndpointGroups[${i}]: -5}"; done
 			else
-				AllEndpointGroupsShort='NOENDPOINTGROUPS'
+				AllEndpointGroupsShort=( 'NOENDPOINTGROUPS' )
 			fi
-			if [[ ${AllAppWANs} != "NOAPPWANS" ]]; then
+			if [[ ${AllAppWANs[0]} != "NOAPPWANS" ]]; then
 				AllAppWANs=( ${AllAppWANs} )
 				for ((i=0;i<${#AllAppWANs[*]};i++)); do AllAppWANsShort[${i}]="...${AllAppWANs[${i}]: -5}"; done
 			else
@@ -4244,8 +4241,8 @@ function BulkCreateEndpoints() {
 			if [[ ${Target_ENDPOINTNAME} == "MISSINGNAME" ]] || [[ ${Target_ENDPOINTTYPE} == "MISSINGTYPE" ]] || [[ ${Target_NETWORK} == "MISSINGNETWORK" ]] || [[ ${Target_GEOREGION} == "MISSINGGEOREGION" ]]; then
 				[[ ${ThisMode} == "PARSECHECKONLY" ]] \
 					&& AttentionMessage "ERROR" "The following line is missing required context. Ignoring line."
-				let OutputCounter[3]++ # Increment the failure counter.
-				let OutputCounter[1]-- # Decrement the valid counter.
+				(( OutputCounter[3]++ )) # Increment the failure counter.
+				(( OutputCounter[1]-- )) # Decrement the valid counter.
 				return 1
 			elif [[ ${#Target_ENDPOINTNAME} -lt 5 ]] || [[ ${#Target_ENDPOINTNAME} -gt 64 ]] || [[ ! ${Target_ENDPOINTNAME} =~ ^[[:alnum:]].*[[:alnum:]]$ ]]; then
 				if [[ ${ThisMode} == "PARSECHECKONLY" ]] && [[ ${Target_ENDPOINTNAME} =~ "VALIDATED" ]]; then
@@ -4254,28 +4251,28 @@ function BulkCreateEndpoints() {
 				elif [[ ${ThisMode} == "PARSECHECKONLY" ]]; then
 					AttentionMessage "ERROR" "The following line contains a name that does not meet naming criteria. Name must be >=5 chars, <=64 chars, and only alphanumeric. Ignoring line."
 				fi
-				let OutputCounter[3]++ # Increment the failure counter.
-				let OutputCounter[1]-- # Decrement the valid counter.
+				(( OutputCounter[3]++ )) # Increment the failure counter.
+				(( OutputCounter[1]-- )) # Decrement the valid counter.
 				return 1
 			elif [[ ${#Target_NETWORK} -ne 36 ]] || [[ ${#Target_GEOREGION} -ne 36 ]]; then
 				[[ ${ThisMode} == "PARSECHECKONLY" ]] \
 					&& AttentionMessage "ERROR" "The following line contains a Network UUID or GeoRegion UUID that is not 36 chars. Ignoring line."
-				let OutputCounter[3]++ # Increment the failure counter.
-				let OutputCounter[1]-- # Decrement the valid counter.
+				(( OutputCounter[3]++ )) # Increment the failure counter.
+				(( OutputCounter[1]-- )) # Decrement the valid counter.
 				return 1
 			elif [[ ${AllEndpointGroups} != "NOENDPOINTGROUPS" ]] && [[ ${#AllEndpointGroups} -lt 36 ]]; then
 				[[ ${ThisMode} == "PARSECHECKONLY" ]] && [[ ${AllEndpointGroups} =~ "@" ]] \
 					&& AttentionMessage "ERROR" "The following line contains EndpointGroup UUID(s) which have an email address instead of a UUID. Ignoring line." \
 					|| AttentionMessage "ERROR" "The following line contains EndpointGroup UUID(s) that are in error. Ignoring line."
-				let OutputCounter[3]++ # Increment the failure counter.
-				let OutputCounter[1]-- # Decrement the valid counter.
+				(( OutputCounter[3]++ )) # Increment the failure counter.
+				(( OutputCounter[1]-- )) # Decrement the valid counter.
 				return 1
 			elif [[ ${AllAppWANs} != "NOAPPWANS" ]] && [[ ${#AllAppWANs} -lt 36 ]]; then
 				[[ ${ThisMode} == "PARSECHECKONLY" ]] && [[ ${AllAppWANs} =~ "@" ]] \
 					&& AttentionMessage "ERROR" "The following line contains AppWAN UUID(s) which have an email address instead of a UUID. Ignoring line." \
 					|| AttentionMessage "ERROR" "The following line contains AppWAN UUID(s) that are in error. Ignoring line."
-				let OutputCounter[3]++ # Increment the failure counter.
-				let OutputCounter[1]-- # Decrement the valid counter.
+				(( OutputCounter[3]++ )) # Increment the failure counter.
+				(( OutputCounter[1]-- )) # Decrement the valid counter.
 				return 1
 			else
 				return 0
@@ -4291,7 +4288,7 @@ function BulkCreateEndpoints() {
 	local BulkImportFile="${1}"
 	local TimeCapture=( "$(date +%s)" "0" "0" ) # EPOCH seconds. 1=CURRENT 2=ENDOFIMPORT 3=DELTA
 	local CSVHeader=( "NAME" "TYPE" "NETWORK_UUID" "GEOREGION_UUID" "ENDPOINTGROUP_UUIDS_[OPT]" "APPWAN_UUIDS_[OPT]" "EMAIL_[OPT]" "EMAIL_MSG_[OPT]" )
-	local BulkImportVar=$(egrep -v '^[[:space:]]*$' ${BulkImportFile} | tr -dC '[:print:]\t\n') # Sanitized input.
+	local BulkImportVar=$(grep -Ev '^[[:space:]]*$' ${BulkImportFile} | tr -dC '[:print:]\t\n') # Sanitized input.
 	local OutputFile="BulkEndpoints-OUTPUT_${TimeCapture[0]}.csv"
 
 	# Alert the user about how registration keys will be displayed.
@@ -4359,7 +4356,7 @@ function BulkCreateEndpoints() {
 		# This Endpoint was newly created.
 		if SetObjects "CREATEENDPOINT" "${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "${Target_GEOREGION}"; then
 
-			let OutputCounter[2]++ # Increment the success count.
+			(( OutputCounter[2]++ )) # Increment the success count.
 
 			# Determine how to treat the returned registration key.
 			if [[ ${BulkCreateLogRegKey:-FALSE} == "TRUE" ]]; then
@@ -4377,11 +4374,11 @@ function BulkCreateEndpoints() {
 					AttentionMessage "GREENINFO" " ┣━Request to add Endpoint to EndpointGroup \"${AllEndpointGroups[${i}]}\" started."
 					if SetObjects "ADDENDPOINTTOENDPOINTGROUP" "${StoredAttributes[0]}" "${AllEndpointGroups[${i}]}" &>/dev/null; then
 						AttentionMessage "GREENINFO" " ┣━━Request to add Endpoint to EndpointGroup is complete."
-						let OutputCounter[6]++ # Increment the pass counter.
+						(( OutputCounter[6]++ )) # Increment the pass counter.
 						EndpointGroupState[${i}]="ADDEPG_OK:${AllEndpointGroups[${i}]}"
 					else
 						AttentionMessage "ERROR" " ┣━━Request to add Endpoint to EndpointGroup did not complete. Endpoint remains available."
-						let OutputCounter[7]++ # Increment the fail counter.
+						(( OutputCounter[7]++ )) # Increment the fail counter.
 						EndpointGroupState[${i}]="ADDEPG_FAIL:${AllEndpointGroups[${i}]}"
 					fi
 				done
@@ -4395,11 +4392,11 @@ function BulkCreateEndpoints() {
 					AttentionMessage "GREENINFO" " ┣━Request to add \"${Target_ENDPOINTNAME}\" to AppWAN \"${AllAppWANs[${i}]}\" started."
 					if SetObjects "ADDENDPOINTTOAPPWAN" "${StoredAttributes[0]}" "${AllAppWANs[${i}]}" &>/dev/null; then
 						AttentionMessage "GREENINFO" " ┣━Request to add \"${Target_ENDPOINTNAME}\" to AppWAN(s) is complete."
-						let OutputCounter[8]++ # Increment the pass counter.
+						(( OutputCounter[8]++ )) # Increment the pass counter.
 						AppWANState[${i}]="ADDAPW_OK:${AllAppWANs[${i}]}"
 					else
 						AttentionMessage "ERROR" " ┣━━Request to add Endpoint to AppWAN did not complete. Endpoint remains available."
-						let OutputCounter[9]++ # Increment the fail counter.
+						(( OutputCounter[9]++ )) # Increment the fail counter.
 						AppWANState[${i}]="ADDAPW_FAIL:${AllAppWANs[${i}]}"
 					fi
 				done
@@ -4420,7 +4417,7 @@ function BulkCreateEndpoints() {
 			# If the GetObject returns false, then this is a true failure (could not create and no UUID returned).
 			if ! GetObjects "ENDPOINT-REGSTATE"; then
 
-				let OutputCounter[3]++
+				(( OutputCounter[3]++ ))
 				AttentionMessage "ERROR" " ┗━Endpoint creation failed. See message below."
 				echo "${StoredAttributes[0]:-NO MESSAGE RETURNED}"
 				echo "$(date +'%s'),${Target_ENDPOINTNAME},${Target_ENDPOINTTYPE},${Target_NETWORK},${Target_GEOREGION},CREATION_FAILED_NOUUID,CREATION_FAILED_NO_REGISTRATION_KEY,CREATION_FAILED_NO_ENDPOINTGROUP,CREATION_FAILED_NO_APPWAN,EMAIL:${Target_EMAIL[0]}" >> ${OutputFile}
@@ -4440,7 +4437,7 @@ function BulkCreateEndpoints() {
 				# A state of any except 400 indicates the Endpoint is not registered.
 				if [[ ${StoredAttributes[1]%:::*} -ne 400 ]] && [[ ${StoredAttributes[1]#*:::} -gt 0 ]]; then
 
-					let OutputCounter[2]++ # Increment the success counter.
+					(( OutputCounter[2]++ )) # Increment the success counter.
 					AttentionMessage "YELLOWINFO" " ┣━━Endpoint exists but has not registered yet. (STATE=${StoredAttributes[1]%:::*} | ATTEMPTS LEFT=${StoredAttributes[1]#*:::})"
 					BulkExportVar="${BulkExportVar}${NewLine}${InputLine}"
 
@@ -4450,11 +4447,11 @@ function BulkCreateEndpoints() {
 							AttentionMessage "GREENINFO" " ┣━Request to add Endpoint to EndpointGroup \"${AllEndpointGroups[${i}]}\" started."
 							if SetObjects "ADDENDPOINTTOENDPOINTGROUP" "${StoredAttributes[0]}" "${AllEndpointGroups[${i}]}" &>/dev/null; then
 								AttentionMessage "VALIDATED" " ┣━━Request to add Endpoint to EndpointGroup is complete."
-								let OutputCounter[6]++ # Increment the pass counter.
+								(( OutputCounter[6]++ )) # Increment the pass counter.
 								EndpointGroupState[${i}]="ADDEPG_OK:${AllEndpointGroups[${i}]}"
 							else
 								AttentionMessage "ERROR" " ┣━━Request to add Endpoint to EndpointGroup did not complete. Endpoint remains available."
-								let OutputCounter[7]++ # Increment the fail counter.
+								(( OutputCounter[7]++ )) # Increment the fail counter.
 								EndpointGroupState[${i}]="ADDEPG_FAIL:${AllEndpointGroups[${i}]}"
 							fi
 						done
@@ -4468,11 +4465,11 @@ function BulkCreateEndpoints() {
 							AttentionMessage "GREENINFO" " ┣━Request to add Endpoint to AppWAN \"${AllAppWANs[${i}]}\" started."
 							if SetObjects "ADDENDPOINTTOAPPWAN" "${StoredAttributes[0]}" "${AllAppWANs[${i}]}" &>/dev/null; then
 								AttentionMessage "VALIDATED" " ┣━━Request to add Endpoint to AppWAN is complete."
-								let OutputCounter[8]++ # Increment the pass counter.
+								(( OutputCounter[8]++ )) # Increment the pass counter.
 								AppWANState[${i}]="ADDAPW_OK:${AllAppWANs[${i}]}"
 							else
 								AttentionMessage "ERROR" " ┣━━Request to add Endpoint to AppWAN did not complete. Endpoint remains available."
-								let OutputCounter[9]++ # Increment the fail counter.
+								(( OutputCounter[9]++ )) # Increment the fail counter.
 								AppWANState[${i}]="ADDAPW_FAIL:${AllAppWANs[${i}]}"
 							fi
 						done
@@ -4486,7 +4483,7 @@ function BulkCreateEndpoints() {
 				# Registration attempts equal to zero indicate the user cannot register anymore.
 				elif [[ ${StoredAttributes[1]%:::*} -ne 400 ]] && [[ ${StoredAttributes[1]#*:::} -eq 0 ]]; then
 
-					let OutputCounter[3]++
+					(( OutputCounter[3]++ ))
 					AttentionMessage "ERROR" " ┗━━Endpoint exists but has not registered yet and has run out of attempts. (STATE=${StoredAttributes[1]%:::*}) | ATTEMPTS LEFT=${StoredAttributes[1]#*:::})"
 					echo "$(date +'%s'),${Target_ENDPOINTNAME},${Target_ENDPOINTTYPE},${Target_NETWORK},${Target_GEOREGION},${StoredAttributes[0]:-UUID_NA},NO_ATTEMPTS_LEFT:${StoredAttributes[1]:-REGKEY:NA},EMAIL:${Target_EMAIL[0]}" >> ${OutputFile}
 					BulkExportVar="${BulkExportVar}${NewLine}${InputLine}"
@@ -4494,7 +4491,7 @@ function BulkCreateEndpoints() {
 				else
 
 					AttentionMessage "VALIDATED" " ┗━Endpoint \"${Target_ENDPOINTNAME}\" exists and is registered. No further action taken. (STATE=${StoredAttributes[2]})"
-					let OutputCounter[10]++ # Increment the registered counter.
+					(( OutputCounter[10]++ )) # Increment the registered counter.
 					BulkExportVar="${BulkExportVar}${NewLine}# VALIDATED_${TimeCapture[0]} #${InputLine}"
 
 				fi
@@ -4507,28 +4504,28 @@ function BulkCreateEndpoints() {
 
 	# Analysis.
 	TimeCapture[1]="$(date +%s)"
-	TimeCapture[2]="$((${TimeCapture[1]}-${TimeCapture[0]}))"
-	echo " ┏BULK ENDPOINT CREATION START AT $(date -d @${TimeCapture[0]})"
+	TimeCapture[2]="$((TimeCapture[1]-TimeCapture[0]))"
+	echo " ┏BULK ENDPOINT CREATION START AT $(date -d @TimeCapture[0])"
 	echo " ┣━TOTAL LINES:       ${OutputCounterComplete[0]}"
 	echo " ┣━━LINES COUNTED:    ${OutputCounterComplete[1]}"
-	if [[ $((${OutputCounter[1]})) -ge 1 ]]; then
-		echo " ┣━CREATE SUCCESS:    ${OutputCounter[2]} ($(((${OutputCounter[2]}*100)/${OutputCounter[1]}))%)"
-		echo " ┣━━REGISTERED:       ${OutputCounter[10]:-0} ($(((${OutputCounter[10]:-0}*100)/${OutputCounter[1]}))%)"
-		echo " ┣━━CREATE/REG FAIL:  ${OutputCounter[3]} ($(((${OutputCounter[3]}*100)/${OutputCounter[1]}))%)"
+	if [[ $((OutputCounter[1])) -ge 1 ]]; then
+		echo " ┣━CREATE SUCCESS:    ${OutputCounter[2]} ($(((OutputCounter[2]*100)/OutputCounter[1]))%)"
+		echo " ┣━━REGISTERED:       ${OutputCounter[10]:-0} ($(((${OutputCounter[10]:-0}*100)/OutputCounter[1]))%)"
+		echo " ┣━━CREATE/REG FAIL:  ${OutputCounter[3]} ($(((OutputCounter[3]*100)/OutputCounter[1]))%)"
 	fi
-	if [[ $((${OutputCounter[6]}+${OutputCounter[7]})) -ge 1 ]]; then
-		echo " ┣━GROUP-ADD SUCCESS: ${OutputCounter[6]} ($(((${OutputCounter[6]}*100)/(${OutputCounter[6]}+${OutputCounter[7]})))%)"
-		echo " ┣━━GROUP-ADD FAIL:   ${OutputCounter[7]} ($(((${OutputCounter[7]}*100)/(${OutputCounter[6]}+${OutputCounter[7]})))%)"
+	if [[ $((OutputCounter[6]+OutputCounter[7])) -ge 1 ]]; then
+		echo " ┣━GROUP-ADD SUCCESS: ${OutputCounter[6]} ($(((OutputCounter[6]*100)/(OutputCounter[6]+OutputCounter[7])))%)"
+		echo " ┣━━GROUP-ADD FAIL:   ${OutputCounter[7]} ($(((OutputCounter[7]*100)/(OutputCounter[6]+OutputCounter[7])))%)"
 	fi
-	if [[ $((${OutputCounter[8]}+${OutputCounter[9]})) -ge 1 ]]; then
-		echo " ┣━APPWAN-ADD SUCCESS:${OutputCounter[8]} ($(((${OutputCounter[8]}*100)/(${OutputCounter[8]}+${OutputCounter[9]})))%)"
-		echo " ┣━━APPWAN-ADD FAIL:  ${OutputCounter[9]} ($(((${OutputCounter[9]}*100)/(${OutputCounter[8]}+${OutputCounter[9]})))%)"
+	if [[ $((OutputCounter[8]+OutputCounter[9])) -ge 1 ]]; then
+		echo " ┣━APPWAN-ADD SUCCESS:${OutputCounter[8]} ($(((OutputCounter[8]*100)/(OutputCounter[8]+OutputCounter[9])))%)"
+		echo " ┣━━APPWAN-ADD FAIL:  ${OutputCounter[9]} ($(((OutputCounter[9]*100)/(OutputCounter[8]+OutputCounter[9])))%)"
 	fi
-	if [[ $((${OutputCounter[4]}+${OutputCounter[5]})) -ge 1 ]]; then
-		echo " ┣━EMAIL-SEND SUCCESS:${OutputCounter[4]} ($(((${OutputCounter[4]}*100)/(${OutputCounter[4]}+${OutputCounter[5]})))%)"
-		echo " ┣━━EMAIL-SEND FAIL:  ${OutputCounter[5]} ($(((${OutputCounter[5]}*100)/(${OutputCounter[4]}+${OutputCounter[5]})))%)"
+	if [[ $((OutputCounter[4]+OutputCounter[5])) -ge 1 ]]; then
+		echo " ┣━EMAIL-SEND SUCCESS:${OutputCounter[4]} ($(((OutputCounter[4]*100)/(OutputCounter[4]+OutputCounter[5])))%)"
+		echo " ┣━━EMAIL-SEND FAIL:  ${OutputCounter[5]} ($(((OutputCounter[5]*100)/(OutputCounter[4]+OutputCounter[5])))%)"
 	fi
-	echo " ┗COMPLETE AT $(date). TOTAL TIME $((${TimeCapture[2]}/60))m $((${TimeCapture[2]}%60))s."
+	echo " ┗COMPLETE AT $(date). TOTAL TIME $((TimeCapture[2]/60))m $((TimeCapture[2]%60))s."
 
 	# Update the import file and reveal the output file.
 	AttentionMessage "GREENINFO" "Output results stored in file \"${OutputFile}\"."
@@ -4668,7 +4665,7 @@ function CreateEndpoints() {
 
 							AttentionMessage "VALIDATED" "ENDPOINT_NAME=\"${Target_ENDPOINTNAME}\", ENDPOINT_TYPE=\"${Target_ENDPOINTTYPE}\", ENDPOINT_UUID=\"${Target_ENDPOINTUUID}\", REGISTRATIONKEY=\"${Target_ENDPOINTKEY}\"."
 
-							if [[ ! -z ${Target_ASSOCIATION} ]]; then
+							if [[ -n ${Target_ASSOCIATION} ]]; then
 								AttentionMessage "GREENINFO" "Adding \"${Target_ENDPOINTNAME}\" to ${Target_ASSOCIATION[0]} \"${Target_ASSOCIATION[1]%%=>*}\"."
 								! SetObjects "ADDENDPOINTTO${Target_ASSOCIATION[0]}" "${SetObjectReturn##*=>}" "${Target_ASSOCIATION[1]##*=>}" \
 									&& AttentionMessage "ERROR" "Endpoint association failed. Endpoint remains available." \
@@ -4676,7 +4673,7 @@ function CreateEndpoints() {
 									|| AttentionMessage "VALIDATED" "New Endpoint \"${Target_ENDPOINTNAME}\" added to \"${Target_ASSOCIATION[1]%%=>*}\"."
 							fi
 
-							if [[ ! -z ${Target_EMAIL[0]} ]]; then
+							if [[ -n ${Target_EMAIL[0]} ]]; then
 								AttentionMessage "GREENINFO" "Sending alert to \"${Target_EMAIL[0]}\" with information about new Endpoint \"${Target_ENDPOINTNAME}\"."
 								! SetObjects "EMAILALERT" "${Target_ENDPOINTUUID}" "${Target_EMAIL[0]}" "${Target_EMAIL[1]}" \
 									&& AttentionMessage "ERROR" "Email alert transmission failed. Endpoint remains available." \
@@ -4798,7 +4795,7 @@ function CheckBearerToken() {
 		if [[ ${#AllIDTenants} -ge 1 ]]; then
 
 			for ((i=0;i<${#AllIDTenants[*]};i++)); do
-				AttentionMessage "GENERALINFO" "Identity Tenant #$((${i}+1)): ${AllIDTenants[${i}]}."
+				AttentionMessage "GENERALINFO" "Identity Tenant #$((i+1)): ${AllIDTenants[${i}]}."
 			done
 
 		else
@@ -4812,11 +4809,11 @@ function CheckBearerToken() {
 	fi
 
 	# Release in-memory variables as required.
-	[[ ! -z ${ThisClientID} ]] \
+	[[ -n ${ThisClientID} ]] \
 		&& AttentionMessage "GENERALINFO" "Scrambling and releasing the ClientID." \
 		&& ThisClientID="${RANDOM}${RANDOM}" \
 		&& unset ThisClientID
-	[[ ! -z ${ThisClientID} ]] \
+	[[ -n ${ThisClientID} ]] \
 		&& AttentionMessage "GENERALINFO" "Scrambling and releasing the ClientSecret." \
 		&& ThisClientSecret="${RANDOM}${RANDOM}" \
 		&& unset ThisClientSecret
@@ -4825,20 +4822,20 @@ function CheckBearerToken() {
 #################################################################################
 # Usage and help menu for Bulk Creation of Endpoints.
 function BulkCreateHelp() {
-	FancyPrint $(printf "%s\n" 'Bulk creation of Endpoints using the API requires an external file be correctly formatted as a read-in.') "1" "0"
-	FancyPrint $(printf "%s\n" 'Results from each creation will be stored in a relatively created local file named "./OutputFile="BulkEndpoints-OUTPUT_[EPOCH].csv".') "1" "0"
-	FancyPrint $(printf "%s\n" 'Updates to the input file will be performed for subsequent re-runs against it.') "1" "0"
-	FancyPrint $(printf "%s\n" 'One or more lines of the Comma Separated Values (CSV) list shall include each of the following in the order shown without quotes.') "1" "0"
-	FancyPrint $(printf "%s\n\n" '[ENDPOINT NAME],[ENDPOINT TYPE],[NETWORK UUID],[ENDPOINT GEOREGION UUID],[OPTIONAL: ENDPOINTGROUP UUIDS (semi-colon delimited)],[OPTIONAL: APPWAN UUIDS (semi-colon delimited)],[OPTIONAL: ALERT EMAIL(semi-colon delimited)],[OPTIONAL: ALERT EMAIL MESSAGE],') "0" "0"
+	FancyPrint "$(printf "%s\n" 'Bulk creation of Endpoints using the API requires an external file be correctly formatted as a read-in.')" "1" "0"
+	FancyPrint "$(printf "%s\n" 'Results from each creation will be stored in a relatively created local file named "./OutputFile="BulkEndpoints-OUTPUT_[EPOCH].csv".')" "1" "0"
+	FancyPrint "$(printf "%s\n" 'Updates to the input file will be performed for subsequent re-runs against it.')" "1" "0"
+	FancyPrint "$(printf "%s\n" 'One or more lines of the Comma Separated Values (CSV) list shall include each of the following in the order shown without quotes.')" "1" "0"
+	FancyPrint "$(printf "%s\n\n" '[ENDPOINT NAME],[ENDPOINT TYPE],[NETWORK UUID],[ENDPOINT GEOREGION UUID],[OPTIONAL: ENDPOINTGROUP UUIDS (semi-colon delimited)],[OPTIONAL: APPWAN UUIDS (semi-colon delimited)],[OPTIONAL: ALERT EMAIL(semi-colon delimited)],[OPTIONAL: ALERT EMAIL MESSAGE],')" "0" "0"
 	echo
-	FancyPrint $(printf "%s\n" 'Example: The following line will create a new Endpoint named as shown, of type CLIENT, in network of UUID, in the Region of UUID, added to EndPointGroup of UUID, and TWO Emails with details using "Welcome!" as the message.') "1" "1"
-	FancyPrint $(printf "%s\n\n" 'NetFoundry Fragale-Nic MacBookPro,CL,2dca15fa-6845-47a5-801c-99e94de6d9a7,20d5c5b8-0006-43b9-99aa-503fd3931fea,2dca15fa-6845-4715-1011-49e94dedd9aa,kapil.barman@netfoundry.io;nic.fragale@netfoundry.io,Welcome!') "0" "0"
+	FancyPrint "$(printf "%s\n" 'Example: The following line will create a new Endpoint named as shown, of type CLIENT, in network of UUID, in the Region of UUID, added to EndPointGroup of UUID, and TWO Emails with details using "Welcome!" as the message.')" "1" "1"
+	FancyPrint "$(printf "%s\n\n" 'NetFoundry Fragale-Nic MacBookPro,CL,2dca15fa-6845-47a5-801c-99e94de6d9a7,20d5c5b8-0006-43b9-99aa-503fd3931fea,2dca15fa-6845-4715-1011-49e94dedd9aa,kapil.barman@netfoundry.io;nic.fragale@netfoundry.io,Welcome!')" "0" "0"
 	echo
-	FancyPrint $(printf "%s\n" 'Example: The following line will create a new Endpoint named as shown, of type VCPEGW, in network of UUID, in the Region of UUID, added to AppWAN of UUIDs, with no Email alert being sent.') "1" "1"
-	FancyPrint $(printf "%s\n\n" 'ACME DC-A Trenton-NJ,VCPEGW,2dca15fa-6845-47a5-801c-99e94de6d9a7,9bbca6aa-767c-4c48-b4ab-dac0ead018fc,2dca15fa-6845-4715-1111-99e94de6d9a7;2dca15fa-6845-4715-1111-99e94de6daaa') "0" "0"
+	FancyPrint "$(printf "%s\n" 'Example: The following line will create a new Endpoint named as shown, of type VCPEGW, in network of UUID, in the Region of UUID, added to AppWAN of UUIDs, with no Email alert being sent.')" "1" "1"
+	FancyPrint "$(printf "%s\n\n" 'ACME DC-A Trenton-NJ,VCPEGW,2dca15fa-6845-47a5-801c-99e94de6d9a7,9bbca6aa-767c-4c48-b4ab-dac0ead018fc,2dca15fa-6845-4715-1111-99e94de6d9a7;2dca15fa-6845-4715-1111-99e94de6daaa')" "0" "0"
 	echo
-	FancyPrint $(printf "%s\n" 'WARNING: Always use the GEOREGION UUID and TYPE as defined by the CURRENT API Syntax.') "1" "41"
-	FancyPrint $(printf "%s\n" 'WARNING: This program does not check naming syntax, so ensure naming obides by current API requirements.') "1" "41"
+	FancyPrint "$(printf "%s\n" 'WARNING: Always use the GEOREGION UUID and TYPE as defined by the CURRENT API Syntax.')" "1" "41"
+	FancyPrint "$(printf "%s\n" 'WARNING: This program does not check naming syntax, so ensure naming obides by current API requirements.')" "1" "41"
 }
 
 #################################################################################
@@ -5054,27 +5051,6 @@ function ObtainSAFE() {
 }
 
 #################################################################################
-# Usage and help menu.
-function GeneralHelp() {
-	echo "${MyName[0]} -h/-H     ::: This Usage and Help Menu."
-	echo "${MyName[0]} -X        ::: Use Local Package Manager - Install All Required Programs."
-	echo "${MyName[0]}           ::: All Defaults (Interactive SAFE Select, Enable Text Decoration, Interactive Mode)"
-	echo "${MyName[0]} -S        ::: Begin with Interactive Secure Authenticated File Enclave (SAFE) Select. [DEFAULT]"
-	echo "${MyName[0]} -s [FILE] ::: Begin with PreSelected Secure Authenticated File Enclave (SAFE)."
-	echo "${MyName[0]} -P        ::: Enable Text Decoration. [DEFAULT]"
-	echo "${MyName[0]} -p        ::: Limit Text Decoration."
-	echo "${MyName[0]} -t [TOKEN]::: Instead of a SAFE, user provides the BEARER token for the session.."
-	echo "${MyName[0]} -T        ::: Include Teaching Information."
-	echo "${MyName[0]} -I        ::: Interactive Mode. [DEFAULT]"
-	echo "${MyName[0]} -B [FILE] ::: Bulk Endpoint Creation Mode. Applies [-L]."
-	echo "${MyName[0]} -b        ::: Bulk Endpoint Creation Sub-Usage and Help Menu."
-	echo "${MyName[0]} -D        ::: Enable Debug Messages."
-	echo "${MyName[0]} -q        ::: Quiet(er) Printing Mode."
-	echo "${MyName[0]} -C [????] ::: Point API Access towards [production/staging]. [default=production]"
-	echo
-}
-
-#################################################################################
 # Auto installation of required packages.
 function AutoInstallPackages() {
 	function ExecuteInstall() {
@@ -5204,16 +5180,16 @@ function CheckingChain() {
 
 	# Checking Chain - Secondary Critical - Specific to MacOS and BREW.
 	if CheckObject "ENV-s" "Darwin"; then
-		! CheckObject "FILE" "/usr/local/bin/gdate" ]] \
+		! CheckObject "FILE" "/usr/local/bin/gdate" \
 			&& GoToExit "3" "GDATE is a REQUIRED yet NOT INSTALLED MACOS utility to get/set the current time and date." \
 			|| alias date=/usr/local/bin/gdate # GDATE is required vs BSD DATE on MACOS.
-		! CheckObject "FILE" "/usr/local/bin/gfind" ]] \
+		! CheckObject "FILE" "/usr/local/bin/gfind" \
 			&& GoToExit "3" "GFIND is a REQUIRED yet NOT INSTALLED utility to find files and folders in a directory structure." \
 			|| alias find=/usr/local/bin/gfind # GFIND is required vs BSD GREP on MACOS.
-		! CheckObject "FILE" "/usr/local/bin/ggrep" ]] \
+		! CheckObject "FILE" "/usr/local/bin/ggrep" \
 			&& GoToExit "3" "GGREP is a REQUIRED yet NOT INSTALLED MACOS utility to parse text strings with pattern matching." \
 			|| alias grep=/usr/local/bin/ggrep # GGREP is required vs BSD GREP on MACOS.
-		! CheckObject "FILE" "/usr/local/bin/gawk" ]] \
+		! CheckObject "FILE" "/usr/local/bin/gawk" \
 			&& GoToExit "3" "GAWK is a REQUIRED yet NOT INSTALLED MACOS utility to parse text strings with pattern matching." \
 			|| alias grep=/usr/local/bin/gawk # GGREP is required vs BSD GREP on MACOS.
 	fi
@@ -5224,15 +5200,19 @@ function CheckingChain() {
 		&& GoToExit "3" "SHASUM/SHA1SUM is a REQUIRED yet NOT INSTALLED utility to determine the hash of a file."
 
 	# Checking Chain - Get the SHASUM hash of the main file from GITHUB and compare to the local hash.
-	SHA1HASH_GIT=$((curl -fsSLm ${CURLMaxTime} -X GET -H "Cache-Control: no-cache" "${MyGitHubRAWURL}" 2>/dev/null || echo ERROR) | ${SHA1Exec} 2>/dev/null)
-	SHA1HASH_LOCAL=$(${SHA1Exec} ${MyName[1]} 2>/dev/null)
-	AttentionMessage "DEBUG" "UpdateCheck: GIT=\"${SHA1HASH_GIT%% *}\", LOCAL=\"${SHA1HASH_LOCAL%% *}\""
-	if [[ "${SHA1HASH_GIT%% *}" == '709c7506b17090bce0d1e2464f39f4a434cf25f1' ]]; then
-		AttentionMessage "REDINFO" "An error occurred when trying to obtain the HASH of the GIT repository - please report!"
-		GetYorN "SPECIAL-PAUSE"
-	elif [[ "${SHA1HASH_GIT%% *}" != "${SHA1HASH_LOCAL%% *}" ]]; then
-		AttentionMessage "YELLOWINFO" "A new version of \"${MyName[0]}\" is available to clone, please update!"
-		GetYorN "SPECIAL-PAUSE"
+	if [[ ${CheckGITVersion:-TRUE} == "TRUE" ]]; then
+		SHA1HASH_GIT=$( (curl -fsSLm ${CURLMaxTime} -X GET -H "Cache-Control: no-cache" "${MyGitHubRAWURL}" 2>/dev/null || echo ERROR) | ${SHA1Exec} 2>/dev/null)
+		SHA1HASH_LOCAL=$(${SHA1Exec} ${MyName[1]} 2>/dev/null)
+		AttentionMessage "DEBUG" "UpdateCheck: GIT=\"${SHA1HASH_GIT%% *}\", LOCAL=\"${SHA1HASH_LOCAL%% *}\""
+		if [[ "${SHA1HASH_GIT%% *}" == '709c7506b17090bce0d1e2464f39f4a434cf25f1' ]]; then
+			AttentionMessage "REDINFO" "An error occurred when trying to obtain the HASH of the GIT repository - please report!"
+			GetYorN "SPECIAL-PAUSE"
+		elif [[ "${SHA1HASH_GIT%% *}" != "${SHA1HASH_LOCAL%% *}" ]]; then
+			AttentionMessage "YELLOWINFO" "A new version of \"${MyName[0]}\" is available to clone, please update!"
+			GetYorN "SPECIAL-PAUSE"
+		fi
+	else 
+		AttentionMessage "YELLOWINFO" "Bypassing repo check for version delta."
 	fi
 
 	# Finally, check if the user can become elevated.
@@ -5257,6 +5237,28 @@ function InteractiveLoop() {
 	done
 }
 
+#################################################################################
+# Usage and help menu.
+function GeneralHelp() {
+	echo "${MyName[0]} -h/-H     ::: This Usage and Help Menu."
+	echo "${MyName[0]} -N        ::: Do not check the repo for a version delta."
+	echo "${MyName[0]} -X        ::: Use Local Package Manager - Install All Required Programs."
+	echo "${MyName[0]}           ::: All Defaults (Interactive SAFE Select, Enable Text Decoration, Interactive Mode)"
+	echo "${MyName[0]} -S        ::: Begin with Interactive Secure Authenticated File Enclave (SAFE) Select. [DEFAULT]"
+	echo "${MyName[0]} -s [FILE] ::: Begin with PreSelected Secure Authenticated File Enclave (SAFE)."
+	echo "${MyName[0]} -P        ::: Enable Text Decoration. [DEFAULT]"
+	echo "${MyName[0]} -p        ::: Limit Text Decoration."
+	echo "${MyName[0]} -t [TOKEN]::: Instead of a SAFE, user provides the BEARER token for the session.."
+	echo "${MyName[0]} -T        ::: Include Teaching Information."
+	echo "${MyName[0]} -I        ::: Interactive Mode. [DEFAULT]"
+	echo "${MyName[0]} -B [FILE] ::: Bulk Endpoint Creation Mode. Applies [-L]."
+	echo "${MyName[0]} -b        ::: Bulk Endpoint Creation Sub-Usage and Help Menu."
+	echo "${MyName[0]} -D        ::: Enable Debug Messages."
+	echo "${MyName[0]} -q        ::: Quiet(er) Printing Mode."
+	echo "${MyName[0]} -C [????] ::: Point API Access towards [production/staging]. [default=production]"
+	echo
+}
+
 #######################################################################################
 # MAIN FUNCTION
 #######################################################################################
@@ -5279,12 +5281,12 @@ function LaunchMAIN() {
 		&& GoToExit "3" "UNAME is a REQUIRED yet NOT INSTALLED OS name and detail printer."
 	! CheckObject "PROG" "sudo" \
 		&& GoToExit "3" "SUDO is a REQUIRED yet NOT INSTALLED super user elevation program."
-	CheckObject "ENV-v" "Microsoft" \
+	CheckObject "ENV-v" "Microsoft" "NOPRINT" \
 		&& AttentionMessage "GREENINFO" "Detected Microsoft Windows Subsystem for Linux (WSL), limiting text decoration." \
 		&& SetLimitFancy "WSL"
 
 	# Get options from command line.
-	while getopts "HhXSs:Ppt:TIB:bDqC:" ThisOpt 2>/dev/null; do
+	while getopts "HhNXSs:Ppt:TIB:bDqC:" ThisOpt 2>/dev/null; do
 		case ${ThisOpt} in
 			"H"|"h")
 				SetLimitFancy "TRUE"
@@ -5292,6 +5294,9 @@ function LaunchMAIN() {
 				AttentionMessage "GREENINFO" "\"${MyName[0]}\" - NetFoundry Custom API Interface Utility - Usage and Help."
 				GeneralHelp
 				GoToExit "5"
+			;;
+			"N")
+				CheckGITVersion="FALSE"
 			;;
 			"X")
 				SetLimitFancy "TRUE"
@@ -5478,11 +5483,6 @@ function LaunchMAIN() {
 	FollowCountries=( \
 		"GeoRegion"
 		"No Associations - Simple List"
-	)
-
-	MACDTypes=( \
-		"APPWAN"
-		"ENDPOINTGROUP"
 	)
 
 	# Interactive main loop.
