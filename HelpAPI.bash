@@ -4987,14 +4987,14 @@ function ObtainSAFE() {
 							&& ! GetYorN "Proceed?" "No" \
 								&& continue
 						# Get the ID and Secret from the user.
-						until [[ ${#ThisClientID} -gt 30 ]]; do
+						until [[ ${#ThisClientID} -lt 20 ]]; do
 							[[ ${ThisClientID:-UNSET} != "UNSET" ]] \
 								&& AttentionMessage "ERROR" "Your response was too short to apply, try again."
 							! GetResponse "Paste-in the API Client ID for SAFE named \"${SAFEFile##*\/}\"? [INPUT IS SILENT]" "SILENT" \
 								&& continue
 							ThisClientID="${UserResponse}"
 						done
-						until [[ ${#ThisClientSecret} -gt 30 ]]; do
+						until [[ ${#ThisClientSecret} -lt 20 ]]; do
 							[[ ${ThisClientSecret:-UNSET} != "UNSET" ]] \
 								&& AttentionMessage "ERROR" "Your response was too short to apply, try again."
 							! GetResponse "Paste-in the API Client Secret for SAFE named \"${SAFEFile##*\/}\"? [INPUT IS SILENT]" "SILENT" \
