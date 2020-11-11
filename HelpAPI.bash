@@ -246,7 +246,12 @@ function SetupConsoleAccess() {
 	APIGatewayDomain="https://gateway.${1}.netfoundry.io"
 	APIRESTURL="${APIGatewayDomain}/rest/v1"
 	APIIDENTITYURL="${APIGatewayDomain}/identity/v1"
-	APIAuthURL="https://netfoundry-${1}.auth0.com/oauth/token"
+	# ThisAuthURL is a global variable that will exist in newer SAFE files only.
+	if [[ -z ${ThisAuthURL} ]]; then
+		APIAuthURL="https://netfoundry-${1}.auth0.com/oauth/token"
+	else
+		APIAuthURL="${ThisAuthURL}"
+	fi
 }
 
 #################################################################################
@@ -4746,30 +4751,35 @@ function CheckBearerToken() {
 		[[ -z ${ThisClientID} ]] || [[ -z ${ThisClientSecret} ]] \
 			&& GoToExit "3" "API Bearer Token cannot be received unless \"ThisClientID\" and \"ThisClientSecret\" global variables are set."
 
-		AttentionMessage "GENERALINFO" "API User \"client_id (ThisClientID)\" and API Secret \"client_secret (ThisClientSecret)\" present."
-
 		# Obtained required global variables to retrieve the Bearer Token.
-		NFN_BEARER[0]=$( \
-			curl -sSLm ${CURLMaxTime} -X POST -H "content-type: application/json" -H "Cache-Control: no-cache" --data "{
-					\"client_id\":\"${ThisClientID}\",
-					\"client_secret\": \"${ThisClientSecret}\",
-					\"audience\":\"${APIGatewayDomain}/\",
-					\"grant_type\":\"client_credentials\"
-				}" ${APIAuthURL} \
+		if [[ ${APIAuthURL} =~ auth0 ]]; then
+			NFN_BEARER[0]=$( \
+				curl -sSLm ${CURLMaxTime} -X POST -H "content-type: application/json" -H "Cache-Control: no-cache" --data "{
+						\"client_id\":\"${ThisClientID}\",
+						\"client_secret\": \"${ThisClientSecret}\",
+						\"audience\":\"${APIGatewayDomain}/\",
+						\"grant_type\":\"client_credentials\"
+					}" "${APIAuthURL}" \
+					| jq -r '.access_token' 2>/dev/null
+			)
+		elif [[ ${APIAuthURL} =~ amazoncognito ]]; then
+			NFN_BEARER[0]=$( \
+				curl -sSLm ${CURLMaxTime} -u "${ThisClientID}:${ThisClientSecret}" -X POST -H "content-type: application/x-www-form-urlencoded" -H "Cache-Control: no-cache" --data "grant_type=client_credentials" "${APIAuthURL}" \
 				| jq -r '.access_token' 2>/dev/null
-		)
+			)			
+		fi
 
 		# Check validity.
-		[[ ${#NFN_BEARER[0]} -lt 1000 ]] \
-			&& GoToExit "3" "API Bearer Token received from \"${APIConsole}\" did not appear to be correct." \
+		[[ ${#NFN_BEARER[0]} -lt 500 ]] \
+			&& GoToExit "3" "API Bearer Token received from \"${APIAuthURL}\" did not appear to be correct." \
 			&& NFN_BEARER[0]="UNSET" \
-			|| AttentionMessage "GENERALINFO" "API Bearer Token received from \"${APIConsole}\" appears to be correct."
+			|| AttentionMessage "GENERALINFO" "API Bearer Token received from \"${APIAuthURL}\" appears to be correct."
 
 	# Bearer Token does exist from pass in.
 	elif [[ ${NFN_BEARER[0]:-UNSET} != "UNSET" ]]; then
 
 		# Check parameters.
-		[[ ${#NFN_BEARER[0]} -lt 1000 ]] \
+		[[ ${#NFN_BEARER[0]} -lt 500 ]] \
 			&& GoToExit "3" "API Bearer Token from pass in was not correctly formatted." \
 			&& NFN_BEARER[0]="UNSET" \
 			|| AttentionMessage "GENERALINFO" "API Bearer Token was passed in for \"${APIConsole}\"."
@@ -4891,7 +4901,7 @@ function ObtainSAFE() {
 		AttentionMessage "GREENINFO" "Saving information to the SAFE."
 		sleep 3
 		sudo -s bash -c "mkdir -p ${SAFEDir}" &>/dev/null \
-			&& sudo -s bash -c "export GPG_TTY=\$(tty) && echo -e \"ThisClientID=${ThisClientID}\nThisClientSecret=${ThisClientSecret}\" | gpg -q --yes -c -o ${SAFEFile} 2>/dev/null" \
+			&& sudo -s bash -c "export GPG_TTY=\$(tty) && echo -e \"ThisClientID=${ThisClientID}\nThisClientSecret=${ThisClientSecret}\nThisAuthURL=${ThisAuthURL}\" | gpg -q --yes -c -o ${SAFEFile} 2>/dev/null" \
 			&& sudo -s bash -c "chmod -R 700 ${SAFEDir}" &>/dev/null \
 			&& (AttentionMessage "GREENINFO" "Successfully created the API SAFE named \"${SAFEFile##*\/}\"." \
 				&& return 0) \
@@ -4914,9 +4924,16 @@ function ObtainSAFE() {
 				export ${EachLine}
 			done < <(sudo -s bash -c "export GPG_TTY=\$(tty) && gpg -dqo- ${SAFEFile} 2>/dev/null")
 			# Semi-Validate the variables are actually populated correctly.
-			if [[ ${#ThisClientID} -gt 30 ]] && [[ ${#ThisClientSecret} -gt 30 ]]; then
-				AttentionMessage "GENERALINFO" "Successfully able to ascertain the API ID and Secret from the API SAFE named \"${SAFEFile##*\/}\"."
-				return 0
+			if [[ -n ${ThisClientID} ]] && [[ -n ${ThisClientSecret} ]]; then
+				if [[ -n ${ThisAuthURL} ]]; then
+					AttentionMessage "GENERALINFO" "Successfully able to ascertain the API ID, Secret, and Authentication URL from the API SAFE named \"${SAFEFile##*\/}\"."
+					APIAuthURL="${ThisAuthURL}"
+					return 0
+				else
+					AttentionMessage "GENERALINFO" "Successfully able to ascertain the API ID and Secret without Authentication URL from the API SAFE named \"${SAFEFile##*\/}\"."
+					APIAuthURL=""
+					return 0
+				fi
 			else
 				GoToExit "3" "Failed to ascertain the API ID and Secret from the API SAFE named \"${SAFEFile##*\/}\"."
 			fi
@@ -4960,7 +4977,7 @@ function ObtainSAFE() {
 		# Path selection.
 		while true; do
 			CurrentPath="/APISAFE/MAINSelection"
-			unset SAFEFile SAFEName ThisClientID ThisClientSecret
+			unset SAFEFile SAFEName ThisClientID ThisClientSecret ThisAuthURL
 
 			AttentionMessage "GREENINFO" "Looking up available SAFEs."
 			AllSAFEs=( $(sudo -s bash -c "find ${SAFEDir}/*.${SAFEPostExt}.${SAFEEncryption} -maxdepth 1 -type f -exec basename {} \; 2>/dev/null") )
@@ -5001,6 +5018,13 @@ function ObtainSAFE() {
 								&& continue
 							ThisClientSecret="${UserResponse}"
 						done
+						until [[ ${#ThisAuthURL} -gt 10 ]]; do
+							[[ ${ThisAuthURL:-UNSET} != "UNSET" ]] \
+								&& AttentionMessage "ERROR" "Your response was too short to apply, try again."
+							! GetResponse "Paste-in the Authentication URL for SAFE named \"${SAFEFile##*\/}\"? [INPUT IS SILENT]" "SILENT" \
+								&& continue
+							ThisAuthURL="${UserResponse}"
+						done						
 						AttentionMessage "WARNING" "You will be asked to enter a PASSWORD of your choice. Save this password OUTSIDE of this device for security reasons."
 						! GetYorN "Ready to create new SAFE named \"${SAFEFile##*\/}\"?" "Yes" \
 							&& unset ThisClientID ThisClientSecret \
