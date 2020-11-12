@@ -15,7 +15,7 @@ CheckGITVersion="TRUE" # A flag to check the GIT version available and alert the
 BulkCreateLogRegKey="FALSE" # Tell the system how to store returned REGKEYs from creation. (TRUE=LOG , FALSE=NOLOG)
 MaxIdle="600" # Seconds max without a touch will trigger an exit.
 CURLMaxTime="20" # Seconds max without a response until CURL quits.
-SAFEDir="/etc/NetFoundrySAFE" # A variable that holds the location of the SAFE directory - ensure it is in a ROOT only owned directory.
+SAFEDir="/etc/NetFoundrySAFE" # A variable that holds the location of the SAFE directory.
 
 #######################################################################################
 # DO NOT EDIT BELOW THIS LINE!
@@ -812,14 +812,6 @@ function CheckObject() {
 			return 1
 
 		fi
-
-	# An elevated access check - Does not require other variables to be present.
-	elif [[ ${MyInputType} == "ELEVATE" ]]; then
-
-		# Attempt elevation.
-		sudo -p "Please allow elevated access to continue. [PASSWORD] > " -s bash -c "echo -n" 2>/dev/null \
-			&& return 0 \
-			|| return 1
 
 	else
 
@@ -4894,35 +4886,39 @@ function GetLatLonDistance() {
 #################################################################################
 # Help the user set/get/lookup their API ID/Secret SAFE.
 function ObtainSAFE() {
+	function CheckStats() {
+		# 1/OPTION 2/DIR_FILE
+		# Use Linux STAT to check the ownership of a directory or file.
+		stat --format "%${1}" "${2}" 2>/dev/null \
+			|| echo "???"
+	}
+
 	function CreateSAFE() {
 		# 1/SAFEFILE
 		local SAFEFile="${1}"
-		# Write into the elevated permission file.
+		# Write into the file.
 		AttentionMessage "GREENINFO" "Saving information to the SAFE."
 		sleep 3
-		sudo -s bash -c "mkdir -p ${SAFEDir}" &>/dev/null \
-			&& sudo -s bash -c "export GPG_TTY=\$(tty) && echo -e \"ThisClientID=${ThisClientID}\nThisClientSecret=${ThisClientSecret}\nThisAuthURL=${ThisAuthURL}\" | gpg -q --yes -c -o ${SAFEFile} 2>/dev/null" \
-			&& sudo -s bash -c "chmod -R 700 ${SAFEDir}" &>/dev/null \
-			&& (AttentionMessage "GREENINFO" "Successfully created the API SAFE named \"${SAFEFile##*\/}\"." \
+		mkdir -p ${SAFEDir} &>/dev/null \
+			&& export GPG_TTY="$(tty)" \
+			&& echo -e "ThisClientID=${ThisClientID}\nThisClientSecret=${ThisClientSecret}\nThisAuthURL=${ThisAuthURL}" | gpg -q --yes -c -o "${SAFEFile}" 2>/dev/null \
+			&& chmod -R 700 ${SAFEDir} &>/dev/null \
+			&& (AttentionMessage "GREENINFO" "Successfully created the API SAFE \"${SAFEFile}\"." \
 				&& return 0) \
-			|| (AttentionMessage "REDINFO" "Failed to create the API SAFE named \"${SAFEFile##*\/}\"." \
+			|| (AttentionMessage "REDINFO" "Failed to create the API SAFE \"${SAFEFile}\". Ensure the directory is accessible and permissioned correctly." \
 				&& return 1)
 	}
 
 	function OpenSAFE() {
 		# 1/SAFEFILE
 		local SAFEFile="${1}"
-		local SAFEDetail
 		# It is critical that the SAFE exists before moving forward.
-		IFS=' '; SAFEDetail=( $(sudo -s bash -c "ls -ld ${SAFEFile} 2>/dev/null") ); IFS=$'\n'
-		# The file and its permissions are valid like example next line.
-		# -rwx------ 1 root wheel 190 Aug 23 15:36 /etc/NetFoundrySAFE/NFRAGALE.SAFE.gpg
-		if [[ ${SAFEDetail[$((${#SAFEDetail[*]}-1))]} == "${SAFEFile}" ]] && ([[ ${SAFEDetail[0]} == "-rwx------" ]] || [[ ${SAFEDetail[0]} == "-rwx------." ]]) && [[ ${SAFEDetail[2]} == "root" ]]; then
+		if [[ -f ${SAFEFile} ]] && [[ $(CheckStats "a" "${SAFEFile}") == "700" ]] && [[ $(CheckStats "U" "${SAFEFile}") == "${USER}" ]]; then
 			# The SAFE is valid and permissioned correctly, so read it in.
 			AttentionMessage "GENERALINFO" "The SAFE named \"${SAFEFile##*\/}\" was found and correctly permissioned."
 			while read -r EachLine; do
 				export ${EachLine}
-			done < <(sudo -s bash -c "export GPG_TTY=\$(tty) && gpg -dqo- ${SAFEFile} 2>/dev/null")
+			done < <(bash -c "export GPG_TTY="$(tty)" && gpg -dqo- ${SAFEFile} 2>/dev/null")
 			# Semi-Validate the variables are actually populated correctly.
 			if [[ -n ${ThisClientID} ]] && [[ -n ${ThisClientSecret} ]]; then
 				if [[ -n ${ThisAuthURL} ]]; then
@@ -4937,10 +4933,12 @@ function ObtainSAFE() {
 			else
 				GoToExit "3" "Failed to ascertain the API ID and Secret from the API SAFE named \"${SAFEFile##*\/}\"."
 			fi
-		elif [[ ${SAFEDetail[$((${#SAFEDetail[*]}-1))]} == "${SAFEFile}" ]]; then
-			GoToExit "3" "The API SAFE named \"${SAFEFile##*\/}\" exists, however it is not permissioned correctly. [Currently: \"${SAFEDetail[0]}/${SAFEDetail[2]}\"] [Requires: \"-rwx------/root\"]"
 		else
-			GoToExit "3" "The API SAFE named \"${SAFEFile##*\/}\" does not exist."
+			if [[ -d ${SAFEDir} ]] && [[ $(CheckStats "a" "${SAFEDir}") != "700" ]] || [[ $(CheckStats "U" "${SAFEDir}") != "${USER}" ]]; then
+				GoToExit "3" "API SAFE directory \"${SAFEDir}\" - [Currently: $(CheckStats "a" "${SAFEDir}")/$(CheckStats "U" "${SAFEDir}")] [Requires: 700/${USER}]"		
+			elif [[ -f ${SAFEFile} ]] && [[ $(CheckStats "a" "${SAFEFile}") != "700" ]] || [[ $(CheckStats "U" "${SAFEFile}") != "${USER}" ]]; then
+				GoToExit "3" "API SAFE file \"${SAFEFile}\" - [Currently: $(CheckStats "a" "${SAFEFile}")/$(CheckStats "U" "${SAFEFile}")] [Requires: 700/${USER}]"
+			fi
 		fi
 	}
 
@@ -4951,7 +4949,7 @@ function ObtainSAFE() {
 		AttentionMessage "WARNING" "You are about to delete SAFE named \"${SAFEFile##*\/}\"."
 		! GetYorN "Proceed?" "No" \
 			&& return 0
-		sudo -s bash -c "rm -f ${SAFEFile} &>/dev/null" \
+		rm -f ${SAFEFile} &>/dev/null \
 			&& (AttentionMessage "VALIDATED" "Successfully deleted SAFE named \"${SAFEFile##*\/}\"." \
 				&& return 0) \
 			|| (AttentionMessage "ERROR" "Failed to delete SAFE named \"${SAFEFile##*\/}\"." \
@@ -4980,14 +4978,20 @@ function ObtainSAFE() {
 			unset SAFEFile SAFEName ThisClientID ThisClientSecret ThisAuthURL
 
 			AttentionMessage "GREENINFO" "Looking up available SAFEs."
-			AllSAFEs=( $(sudo -s bash -c "find ${SAFEDir}/*.${SAFEPostExt}.${SAFEEncryption} -maxdepth 1 -type f -exec basename {} \; 2>/dev/null") )
+			if [[ ! -e ${SAFEDir} ]]; then
+				AttentionMessage "ERROR" "The API SAFE directory \"${SAFEDir}\" does not exist."
+			elif [[ $(CheckStats "a" "${SAFEDir}") != "700" ]] || [[ $(CheckStats "U" "${SAFEDir}") != "${USER}" ]]; then
+				AttentionMessage "ERROR" "The API SAFE directory \"${SAFEDir}\" exists, however it is not permissioned correctly. [Currently: $(CheckStats "a" "${SAFEDir}")/$(CheckStats "U" "${SAFEDir}")] [Requires: 700/${USER}]"
+			fi
+
+			AllSAFEs=( $(find ${SAFEDir}/*.${SAFEPostExt}.${SAFEEncryption} -maxdepth 1 -type f -exec basename {} \; 2>/dev/null) )
 			GetSelection "What would you like to do?" "${AllSAFEOptions[*]}" "NONE"
 
 			case "${UserResponse}" in
 
 				"List SAFEs")
-					AttentionMessage "GREENINFO" "The following SAFEs are encrypted and stored as an elevated user in this system."
-					sudo -s bash -c "ls -ltr ${SAFEDir}/*.${SAFEPostExt}.${SAFEEncryption} 2>/dev/null"
+					AttentionMessage "GREENINFO" "The following SAFEs are encrypted and stored at \"${SAFEDir}\"."
+					ls -ltr ${SAFEDir}/*.${SAFEPostExt}.${SAFEEncryption} 2>/dev/null
 				;;
 
 				"Create SAFE")
@@ -4999,7 +5003,7 @@ function ObtainSAFE() {
 							&& break
 						SAFEName="${UserResponse}"
 						SAFEFile="${SAFEDir}/${SAFEName}.${SAFEPostExt}.${SAFEEncryption}"
-						sudo -s bash -c "find ${SAFEFile} &>/dev/null" \
+						find ${SAFEFile} &>/dev/null \
 							&& AttentionMessage "WARNING" "A SAFE with the name \"${SAFEFile##*\/}\" already exists, proceeding will overwrite it." \
 							&& ! GetYorN "Proceed?" "No" \
 								&& continue
@@ -5191,6 +5195,8 @@ function CheckingChain() {
 		&& GoToExit "3" "WC is a REQUIRED yet NOT INSTALLED utility to count lines in a text file."
 	! CheckObject "PROG" "find" \
 		&& GoToExit "3" "FIND is a REQUIRED yet NOT INSTALLED utility to find files and folders in a directory structure."
+	! CheckObject "PROG" "stat" \
+		&& GoToExit "3" "STAT is a REQUIRED yet NOT INSTALLED utility to check statistics of files and directories."		
 
 	# Checking Chain - Secondary Critical - Not commonly part of the launching BASH program and Distro.
 	! CheckObject "PROG" "jq" \
@@ -5239,13 +5245,6 @@ function CheckingChain() {
 		AttentionMessage "YELLOWINFO" "Bypassing repo check for version delta."
 	fi
 
-	# Finally, check if the user can become elevated.
-	while true; do
-		! CheckObject "ELEVATE" \
-			&& AttentionMessage "ERROR" "Elevation is required to obtain keys from your stored SAFE - Try again." \
-			|| break
-	done
-	AttentionMessage "GENERALINFO" "Elevation was granted."
 }
 
 #################################################################################
