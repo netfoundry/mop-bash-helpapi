@@ -15,7 +15,7 @@ CheckGITVersion="TRUE" # A flag to check the GIT version available and alert the
 BulkCreateLogRegKey="FALSE" # Tell the system how to store returned REGKEYs from creation. (TRUE=LOG , FALSE=NOLOG)
 MaxIdle="600" # Seconds max without a touch will trigger an exit.
 CURLMaxTime="20" # Seconds max without a response until CURL quits.
-SAFEDir="~/NetFoundrySAFE" # A variable that holds the location of the SAFE directory.
+SAFEDir="~${USER}/NetFoundrySAFE" # A variable that holds the location of the SAFE directory.
 
 #######################################################################################
 # DO NOT EDIT BELOW THIS LINE!
