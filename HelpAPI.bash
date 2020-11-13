@@ -15,7 +15,7 @@ CheckGITVersion="TRUE" # A flag to check the GIT version available and alert the
 BulkCreateLogRegKey="FALSE" # Tell the system how to store returned REGKEYs from creation. (TRUE=LOG , FALSE=NOLOG)
 MaxIdle="600" # Seconds max without a touch will trigger an exit.
 CURLMaxTime="20" # Seconds max without a response until CURL quits.
-SAFEDir="~${USER}/NetFoundrySAFE" # A variable that holds the location of the SAFE directory.
+SAFEDir="${HOME}/NetFoundrySAFE" # A variable that holds the location of the SAFE directory.
 
 #######################################################################################
 # DO NOT EDIT BELOW THIS LINE!
@@ -1110,7 +1110,7 @@ function GetSelection() {
 
 			else
 
-					AttentionMessage "ERROR" "Invalid response, try again."
+					AttentionMessage "ERROR" "Invalid response \"${REPLY}\", try again."
 					sleep 1
 					unset SELECTION
 
@@ -4915,7 +4915,7 @@ function ObtainSAFE() {
 		# It is critical that the SAFE exists before moving forward.
 		if [[ -f ${SAFEFile} ]] && [[ $(CheckStats "a" "${SAFEFile}") == "700" ]] && [[ $(CheckStats "U" "${SAFEFile}") == "${USER}" ]]; then
 			# The SAFE is valid and permissioned correctly, so read it in.
-			AttentionMessage "GENERALINFO" "The SAFE named \"${SAFEFile##*\/}\" was found and correctly permissioned."
+			AttentionMessage "GENERALINFO" "The API SAFE \"${SAFEFile}\" was found and correctly permissioned."
 			while read -r EachLine; do
 				export ${EachLine}
 			done < <(bash -c "export GPG_TTY="$(tty)" && gpg -dqo- ${SAFEFile} 2>/dev/null")
@@ -4931,7 +4931,7 @@ function ObtainSAFE() {
 					return 0
 				fi
 			else
-				GoToExit "3" "Failed to ascertain the API ID and Secret from the API SAFE named \"${SAFEFile##*\/}\"."
+				GoToExit "3" "Failed to ascertain the API ID and Secret from the API SAFE named \"${SAFEFile}\"."
 			fi
 		else
 			if [[ -d ${SAFEDir} ]] && [[ $(CheckStats "a" "${SAFEDir}") != "700" ]] || [[ $(CheckStats "U" "${SAFEDir}") != "${USER}" ]]; then
@@ -4977,7 +4977,6 @@ function ObtainSAFE() {
 			CurrentPath="/APISAFE/MAINSelection"
 			unset SAFEFile SAFEName ThisClientID ThisClientSecret ThisAuthURL
 
-			AttentionMessage "GREENINFO" "Looking up available SAFEs."
 			if [[ ! -e ${SAFEDir} ]]; then
 				AttentionMessage "ERROR" "The API SAFE directory \"${SAFEDir}\" does not exist."
 			elif [[ $(CheckStats "a" "${SAFEDir}") != "700" ]] || [[ $(CheckStats "U" "${SAFEDir}") != "${USER}" ]]; then
@@ -5404,7 +5403,6 @@ function LaunchMAIN() {
 	if [[ ${NFN_BEARER-:UNSET} != "UNSET" ]]; then
 		AttentionMessage "GENERALINFO" "Bearer Token passed in. API SAFE not required."
 	elif [[ ${SAFEFile} == "UNSET" ]]; then
-		AttentionMessage "REDINFO" "A NetFoundry API SAFE was not specified. Please select or create a SAFE to continue."
 		ObtainSAFE "MENU"
 	elif [[ ${SAFEFile} == "MENU" ]]; then
 		ObtainSAFE "MENU"
