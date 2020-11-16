@@ -1046,6 +1046,7 @@ function GetSelection() {
 	local MaxLength="0"
 	local i REPLY SelectionList SelectionItem TMP_DefaultAnswer COLUMNS
 	unset SELECTION UserResponse PS3
+	set -o posix
 
 	# Update the idle tracker.
 	TrackLastTouch "UPDATE"
@@ -1093,16 +1094,19 @@ function GetSelection() {
 
 					1|"BACK")
 						ClearLines "ALL"
+						set +o posix
 						return 1
 					;;
 
 					2|"QUIT")
+						set +o posix
 						GoToExit "0"
 					;;
 
 					*)
 						UserResponse="${InputAllowed[$((REPLY-1))]}"
 						ClearLines "ALL"
+						set +o posix
 						return 0
 					;;
 
