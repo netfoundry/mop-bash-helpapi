@@ -27,7 +27,7 @@ ParentPID="$$" # The PID of this script (AKA the parent that spawns subprocesses
 MyPkgMgr="UNKNOWN" # The OS of the running system.
 MyName=( "${0##*/}" "${0}" ) # Name (0/Base 1/Full) of the program.
 TmpDir="/tmp" # The temporary directory this program will use.
-APIConsole="production"
+APIMOP="production"
 TeachMode="FALSE" # A special flag that allows emit of certain messages.
 DebugInfo="FALSE" # A special flag that shows extra data from the API system.
 export Normal="0" Bold="1" Dimmed="2" Invert="7" # Trigger codes for BASH.
@@ -240,9 +240,9 @@ function GoToExit() {
 }
 
 #################################################################################
-# Setup the access mechanism towards the Console.
-function SetupConsoleAccess() {
-	# 1/APIConsole
+# Setup the access mechanism towards the MOP.
+function SetupMOPAccess() {
+	# 1/APIMOP
 	APIGatewayDomain="https://gateway.${1}.netfoundry.io"
 	APIRESTURL="${APIGatewayDomain}/rest/v1"
 	APIIDENTITYURL="${APIGatewayDomain}/identity/v1"
@@ -626,7 +626,7 @@ function PrintHelper() {
 	# BOXHEADLINEB and BOXITEMB are unique cases with multiple special characters in the BoxDetail variable, as well as no BoxTrail.
 	if [[ ${PrintType} == "BOXHEADLINEB" ]] || [[ ${PrintType} == "BOXITEMB" ]]; then
 
-		IFS=','; BoxDetail=( ${BoxDetail} ); IFS=$' \t\n' # BoxDetail is a comma delimited array.
+		IFS=',' read -ra BoxDetail <<< "${BoxDetail}" # BoxDetail is a comma delimited array.
 		# If the variable Items in BoxDetail are uneven, padding using MOD will be applied. (101-1Pad) 100 MOD Items = Leftover Spaces.
 		PrintSyntax="${PrintSyntax} ${PadBlankField:0:$((100%(${#BoxDetail[*]})+1))}" # EX: 1Pad + (100%6=4) Left Pad Spaces, 95 Spaces for Items
 
@@ -894,8 +894,8 @@ function FancyPrint() {
 				ThisLineText="${ThisLogoA[${i}]##*:::}"
 				ThisLinePosition="${ThisLogoA[${i}]%%:::*}"
 				ThisColumns="$(tput cols)"
-				tput cup ${ThisLinePosition} $(((ThisColumns/2)-(${#ThisLineText}/2)))
-				printf $(TypeIt "${ThisLineText}" "${ThisSpeedFactor}" "${ThisColor}")
+				tput cup "${ThisLinePosition}" $(((ThisColumns/2)-(${#ThisLineText}/2)))
+				echo -n "$(TypeIt "${ThisLineText}" "${ThisSpeedFactor}" "${ThisColor}")"
 				sleep 0.15
 			done
 			tput cup 0 0 # Move cursor to line 8 column 0.
@@ -903,8 +903,8 @@ function FancyPrint() {
 				ThisLineText="${ThisLogoB[${i}]##*:::}"
 				ThisLinePosition="${ThisLogoB[${i}]%%:::*}"
 				ThisColumns="$(tput cols)"
-				tput cup ${ThisLinePosition} $(((ThisColumns/2)-(${#ThisLineText}/2)))
-				printf $(TypeIt "${ThisLineText}" "${ThisSpeedFactor}" "${ThisColor}")
+				tput cup "${ThisLinePosition}" $(((ThisColumns/2)-(${#ThisLineText}/2)))
+				echo -n "$(TypeIt "${ThisLineText}" "${ThisSpeedFactor}" "${ThisColor}")"
 				sleep 0.05
 			done
 			tput cnorm # Cursor is visible after the draw.
@@ -912,7 +912,7 @@ function FancyPrint() {
 		else
 
 			for ((i=0;i<${#ThisLogoA[*]};i++)); do
-				printf $(TypeIt ${ThisLogoB[${i}]##*:::} "${ThisSpeedFactor}" "${ThisColor}")
+				echo -n "$(TypeIt ${ThisLogoB[${i}]##*:::} "${ThisSpeedFactor}" "${ThisColor}")"
 				echo
 			done
 
@@ -954,7 +954,7 @@ function GetResponse() {
 		AttentionMessage "RESPONSE" "${InputQuestion} [BACK=BACK] [QUIT=QUIT]"
 
 		# Get the answer.
-		read ${IsSilent[0]} -p "[${CurrentPath:-\/}] Response? [DEFAULT=\"${DefaultAnswer}\"] > "
+		read ${IsSilent[0]} -rp "[${CurrentPath:-\/}] Response? [DEFAULT=\"${DefaultAnswer}\"] > "
 		if [[ ${REPLY:-NONE} == "NONE" ]] && [[ ${DefaultAnswer:-NONE} != "NONE" ]]; then
 			UserResponse="${DefaultAnswer}"
 		elif [[ ${REPLY:-NONE} == "NONE" ]] && [[ ${DefaultAnswer:-NONE} == "NONE" ]]; then
@@ -975,7 +975,7 @@ function GetResponse() {
 
 		return 0
 
- done
+	done 2>&1
 }
 
 #################################################################################
@@ -990,61 +990,62 @@ function GetYorN() {
 	# Loop until a decision is made.
 	while true; do
 
-	# Get the answer.
-	if [[ ${TimerVal} ]]; then
-		trap '' SIGINT SIGTERM # Ignore CTRL+C events.
-		# A request for YES OR NO is a question only.
-		AttentionMessage "YES OR NO" "${InputQuestion}"
-		read -t ${TimerVal} -p "[${CurrentPath:-\/}] Yes or No? [DEFAULT=\"${DefaultAnswer}\"] [TIMEOUT=${TimerVal[0]}s] > "
-		[[ $? -ne 0 ]] \
-			&& echo "[TIMED OUT, DEFAULT \"${DefaultAnswer}\" SELECTED]" \
-			&& sleep 1
-		trap 'GoToExit 2' SIGINT SIGTERM # Reset CTRL+C events.
-	elif [[ ${InputQuestion} == "SPECIAL-PAUSE" ]]; then
-		read -p "Press ENTER to Continue > "
-		unset REPLY
-		return 0
-	else
-		# A request for YES OR NO is a question only.
-		AttentionMessage "YES OR NO" "${InputQuestion}"
-		read -p "[${CurrentPath:-\/}] Yes or No? [DEFAULT=\"${DefaultAnswer}\"] > "
-	fi
-
-	# If there was no reply, take the default.
-	[[ ${REPLY:-NONE} == "NONE" ]] \
-		&& REPLY="${DefaultAnswer}"
-
-	# Find out which reply was given.
-	case ${REPLY} in
-		Y|YE|YES|YEs|Yes|yes|ye|y)
+		# Get the answer.
+		if [[ ${TimerVal} ]]; then
+			trap '' SIGINT SIGTERM # Ignore CTRL+C events.
+			# A request for YES OR NO is a question only.
+			AttentionMessage "YES OR NO" "${InputQuestion}"
+			read -rt "${TimerVal}" -p "[${CurrentPath:-\/}] Yes or No? [DEFAULT=\"${DefaultAnswer}\"] [TIMEOUT=${TimerVal[0]}s] > "
+			[[ $? -ne 0 ]] \
+				&& echo "[TIMED OUT, DEFAULT \"${DefaultAnswer}\" SELECTED]" \
+				&& sleep 1
+			trap 'GoToExit 2' SIGINT SIGTERM # Reset CTRL+C events.
+		elif [[ ${InputQuestion} == "SPECIAL-PAUSE" ]]; then
+			read -rp "Press ENTER to Continue > "
 			unset REPLY
 			return 0
-		;;
-		N|NO|No|no|n)
-			unset REPLY
-			return 1
-		;;
-		QUIT)
-			GoToExit "0"
-		;;
-		*)
-			AttentionMessage "ERROR" "Invalid response, try again."
-			sleep 1
-			continue
-		;;
-	esac
+		else
+			# A request for YES OR NO is a question only.
+			AttentionMessage "YES OR NO" "${InputQuestion}"
+			read -rp "[${CurrentPath:-\/}] Yes or No? [DEFAULT=\"${DefaultAnswer}\"] > "
+		fi
 
- done
+		# If there was no reply, take the default.
+		[[ ${REPLY:-NONE} == "NONE" ]] \
+			&& REPLY="${DefaultAnswer}"
+
+		# Find out which reply was given.
+		case ${REPLY} in
+			Y|YE|YES|YEs|Yes|yes|ye|y)
+				unset REPLY
+				return 0
+			;;
+			N|NO|No|no|n)
+				unset REPLY
+				return 1
+			;;
+			QUIT)
+				GoToExit "0"
+			;;
+			*)
+				AttentionMessage "ERROR" "Invalid response, try again."
+				sleep 1
+				continue
+			;;
+		esac
+
+	done 2>&1
 }
 
 #################################################################################
 # Elicit a selection response from the user.
 function GetSelection() {
-	local InputQuestion="${1}"
-	local InputAllowed=( "BACK" "QUIT" ${2} )
-	local DefaultAnswer="${3}"
-	local MaxLength="0"
 	local i REPLY SelectionList SelectionItem TMP_DefaultAnswer COLUMNS
+	local InputQuestion InputAllowed InputAllowed DefaultAnswer MaxLength
+	InputQuestion="${1}"
+	InputAllowed=( "BACK" "QUIT" ${2} )
+	DefaultAnswer="${3}"
+	MaxLength="0"
 	unset SELECTION UserResponse PS3
 	set -o posix
 
@@ -1088,7 +1089,7 @@ function GetSelection() {
 		COLUMNS="1" # Force select statement into a single column.
 		select SELECTION in ${SelectionList[*]}; do
 
-			if [[ 1 -le "${REPLY}" ]] && [[ "${REPLY}" -le ${#SelectionList[*]} ]]; then
+			if { [[ "${REPLY}" == "QUIT" ]] || [[ "${REPLY}" == "BACK" ]]; } || { [[ 1 -le "${REPLY}" ]] && [[ "${REPLY}" -le ${#SelectionList[*]} ]]; }; then
 
 				case ${REPLY} in
 
@@ -1114,9 +1115,9 @@ function GetSelection() {
 
 			else
 
-					AttentionMessage "ERROR" "Invalid response \"${REPLY}\", try again."
-					sleep 1
-					unset SELECTION
+				AttentionMessage "ERROR" "Invalid response \"${REPLY}\", try again."
+				sleep 1
+				unset SELECTION
 
 			fi
 
@@ -1124,7 +1125,7 @@ function GetSelection() {
 
 		done 2>&1
 
-	done
+	done 2>&1
 }
 
 #################################################################################
@@ -1278,23 +1279,25 @@ function ProcessResponse() {
 function GetObjects() {
 	function DeriveDetail() {
 		# 1/INPUTLIST 2/INPUTTYPE
-		local InputList=( ${1} ) # An array of objects.
-		local InputType="${2}" # Type of objects in the array.
+		local InputList InputType
+		InputList=( ${1} ) # An array of objects.
+		InputType="${2}" # Type of objects in the array.
 		! GetSelection "Derive more detail on which of the following?" "${InputList[*]}" \
 			&& return 0
 		ProcessResponse "${GETSyntax}" "${APIRESTURL}/networks/${Target_NETWORK[0]}/${InputType}/${UserResponse##*=>}" "200" \
 			&& AttentionMessage "GENERALINFO" "The following is derived detail for \"${UserResponse%%=>*}\"." \
-			&& echo ${OutputJSON} | jq 2>/dev/null
+			&& echo "${OutputJSON}" | jq 2>/dev/null
 	}
 
 	# 1/TYPE 2/[LISTMODE & URLTRAIL] 3/EXPLICITUUID
-	local ListType="${1}"
-	local ListMode="${2}" # Options: BLANK=DEFAULTURL, URL=SPECIFICURL, FOLLOW-XYZ=LOOPWITHXYZTYPE, FOLLOW-ASERVICES=SPECIFICUUID, DERIVEDETAIL=OUTPUTSPECIFICJSON
-	local URLTrail="${2/FOLLOW*/}" # In FOLLOW-XYZ mode, there is no input URLTrail, so set it to blank (default URLTrail will be used).
-	local ExplicitUUID="${3}" # In FOLLOW-ASERVICES ListMode (AppWAN Only), use this UUID.
-	local AskDelete="0" # In certain situations the program will ask the user to delete objects that are orphans.
+	local ListType ListMode URLTrail ExplicitUUID ExplicitUUID AskDelete
 	local i j BGPID Target_ENDPOINT Target_ENDPOINTGROUP Target_SERVICE
 	local OutputResponse OutputHeaders OutputJSON
+	ListType="${1}"
+	ListMode="${2}" # Options: BLANK=DEFAULTURL, URL=SPECIFICURL, FOLLOW-XYZ=LOOPWITHXYZTYPE, FOLLOW-ASERVICES=SPECIFICUUID, DERIVEDETAIL=OUTPUTSPECIFICJSON
+	URLTrail="${2/FOLLOW*/}" # In FOLLOW-XYZ mode, there is no input URLTrail, so set it to blank (default URLTrail will be used).
+	ExplicitUUID="${3}" # In FOLLOW-ASERVICES ListMode (AppWAN Only), use this UUID.
+	AskDelete="0" # In certain situations the program will ask the user to delete objects that are orphans.	
 
 	case ${ListType} in
 
@@ -1302,15 +1305,13 @@ function GetObjects() {
 			if ProcessResponse "${GETSyntax}" "${APIRESTURL}/organizations" "200"; then
 				PrintHelper "BOXHEADLINEA" "ITEM #" "${Normal}:::TYPE/INDICATOR" "ORGANIZATION NAME=>UUID" >&2
 
-				AllOrganizations=( \
-					$(echo ${OutputJSON} \
-						| jq -r '
-							select(._embedded.organizations != null)
-							| ._embedded.organizations
-							| .[]
-							| .name + "=>" + (._links.self.href | split("/"))[-1]
-						'
-					)
+				read -d '' -ra AllOrganizations < <( \
+					jq -r '
+						select(._embedded.organizations != null)
+						| ._embedded.organizations
+						| .[]
+						| .name + "=>" + (._links.self.href | split("/"))[-1]
+					' <<< "${OutputJSON}"
 				)
 
 				if [[ ${#AllOrganizations[*]} -eq 0 ]]; then
@@ -1333,15 +1334,13 @@ function GetObjects() {
 			if ProcessResponse "${GETSyntax}" "${APIRESTURL}/networks" "200"; then
 				PrintHelper "BOXHEADLINEA" "ITEM #" "${Normal}:::TYPE/INDICATOR" "NETWORK NAME=>UUID" >&2
 
-				AllNetworks=( \
-					$(echo "${OutputJSON}" \
-						| jq -r '
-							select(._embedded.networks != null)
-							| ._embedded.networks
-							| .[]
-							| .name + "=>" + (._links.self.href | split("/"))[-1]
-						'
-					)
+				read -d '' -ra AllNetworks < <( \
+					jq -r '
+						select(._embedded.networks != null)
+						| ._embedded.networks
+						| .[]
+						| .name + "=>" + (._links.self.href | split("/"))[-1]
+					' <<< "${OutputJSON}"
 				)
 
 				if [[ ${#AllNetworks[*]} -eq 0 ]]; then
@@ -1364,13 +1363,11 @@ function GetObjects() {
 			if ProcessResponse "${GETSyntax}" "${APIIDENTITYURL}/tenants" "200"; then
 				PrintHelper "BOXHEADLINEA" "ITEM #" "${Normal}:::TYPE/INDICATOR" "UUID" >&2
 
-				AllIDTenants=( \
-					$(echo "${OutputJSON}" \
-						| jq -r '
-							select(.[] != null)
-							| .[].id
-						'
-					)
+				read -d '' -ra AllIDTenants < <( \
+					jq -r '
+						select(.[] != null)
+						| .[].id
+					' <<< "${OutputJSON}"
 				)
 
 				if [[ ${#AllIDTenants[*]} -eq 0 ]]; then
@@ -1396,27 +1393,23 @@ function GetObjects() {
 
 				if [[ ${ListType} == "SPECIFICGEOREGION" ]]; then
 					BoxType="BOXITEMASUB"
-					AllGeoRegions=( \
-						$(echo "${OutputJSON}" \
-							| jq -r '
-								select(.name != null)
-								| .name + "=>" + (._links.self.href | split("/"))[-1]
-							'
-						)
+					read -d '' -ra AllGeoRegions < <( \
+						jq -r '
+							select(.name != null)
+							| .name + "=>" + (._links.self.href | split("/"))[-1]
+						' <<< "${OutputJSON}"
 					)
 				else
 					BoxType="BOXITEMA"
-					AllGeoRegions=( \
-						$(echo "${OutputJSON}" \
-							| jq -r '
-								select(._embedded.geoRegions != null)
-								| ._embedded.geoRegions
-								| sort_by(.name)
-								| .[]
-								| .name + "=>" + (._links.self.href | split("/"))[-1]
-							' \
-							| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}"
-						)
+					read -d '' -ra AllGeoRegions < <( \
+						jq -r '
+							select(._embedded.geoRegions != null)
+							| ._embedded.geoRegions
+							| sort_by(.name)
+							| .[]
+							| .name + "=>" + (._links.self.href | split("/"))[-1]
+						' <<< "${OutputJSON}" \
+						| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}"
 					)
 				fi
 
@@ -1440,18 +1433,16 @@ function GetObjects() {
 			if ProcessResponse "${GETSyntax}" "${APIRESTURL}/countries" "200"; then
 				PrintHelper "BOXHEADLINEA" "ITEM #" "${Normal}:::TYPE/INDICATOR" "DESCRIPTION=>UUID" >&2
 
-				AllCountries=( \
-					$(echo "${OutputJSON}" \
-						| jq -r '
+					read -d '' -ra AllCountries < <( \
+						jq -r '
 							select(._embedded.countries != null)
 							| ._embedded.countries
 							| sort_by(.worldRegion)
 							| .[]
-							| .worldRegion + "/" + .name + "=>" + (._links.self.href | split("/"))[-1]
-						' \
+							| .worldRegion + "/" + .name + "=>" + (._links.self.href | split("/"))[-1] + "=>" + (._links.geoRegion.href | split("/"))[-1]
+						' <<< "${OutputJSON}" \
 						| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}"
 					)
-				)
 
 				if [[ ${#AllCountries[*]} -eq 0 ]]; then
 
@@ -1469,15 +1460,18 @@ function GetObjects() {
 							ClearLines "2"
 						fi
 
-						Target_COUNTRY[0]=${AllCountries[${i}]%%=>*}
-						Target_COUNTRY[1]=${AllCountries[${i}]##*=>}
+						Target_COUNTRY[0]=${AllCountries[${i}]%%=>*} # NAME.
+						Target_COUNTRY[1]=${AllCountries[${i}]%=>*} # NAME=>COUNTRYUUID.
+						Target_COUNTRY[2]=${AllCountries[${i}]#*=>} # COUNTRYUUID=>GEOUUID.
+						Target_COUNTRY[3]=${Target_COUNTRY[2]%=>*} # COUNTRYUUID.
+						Target_COUNTRY[4]=${Target_COUNTRY[2]#*=>} # GEOUUID.
 
-						PrintHelper "BOXITEMA" "CTY$(printf "%04d" "$((i+1))")" "${Normal}:::REGION/COUNTRY" "${AllCountries[${i}]}" >&2
+						PrintHelper "BOXITEMA" "CTY$(printf "%04d" "$((i+1))")" "${Normal}:::REGION/COUNTRY" "${Target_COUNTRY[1]}" >&2
 
 						case ${ListMode} in
 							"FOLLOW-GEOREGION")
 								PrintHelper "BOXITEMASUBLINEA"
-								! GetObjects "SPECIFICGEOREGION" "countries/${Target_COUNTRY[1]}/geoRegion" 2>/dev/null \
+								! GetObjects "SPECIFICGEOREGION" "geoRegions/${Target_COUNTRY[4]}" 2>/dev/null \
 									&& PrintHelper "BOXITEMASUB" "CTY...." "${FBlack};${BYellow}:::WARNING" "No GeoRegion association was found."
 							;;
 						esac
@@ -1492,12 +1486,13 @@ function GetObjects() {
 				else
 
 					for ((i=0;i<${#AllCountries[*]};i++)); do
-						PrintHelper "BOXITEMA" "CTY$(printf "%04d" "$((i+1))")" "${Normal}:::REGION/COUNTRY" "${AllCountries[${i}]}"
+						PrintHelper "BOXITEMA" "CTY$(printf "%04d" "$((i+1))")" "${Normal}:::REGION/COUNTRY" "${AllCountries[${i}]%=>*}"
 					done
+
+					PrintHelper "BOXFOOTLINEA" >&2					
 
 				fi
 
-				PrintHelper "BOXFOOTLINEA" >&2
 				return 0
 
 			fi
@@ -1509,25 +1504,23 @@ function GetObjects() {
 			if ProcessResponse "${GETSyntax}" "${APIRESTURL}/networks/${Target_NETWORK[0]}/endpoints" "200"; then
 				PrintHelper "BOXHEADLINEA" "ITEM #" "${Normal}:::TYPE/CLASS/INDICATOR" "DESCRIPTION=>UUID"
 
-				AllGateways=( \
-					$(echo "${OutputJSON}" \
-						| jq -r '
-							select(._embedded.endpoints != null)
-							| ._embedded.endpoints[]
-							| select(.endpointType
-								| contains("GW"))
-							| if ((.status == 100) or (.status == 200) or (.status == 300) or (.status == 600) or (.status == 700)) then
-									.currentState = "NRG"
-								elif ((.status == 500) or (.status == 800) or (.status == 900)) then
-									.currentState = "ERR"
-								elif ((.status == 400) and ((.currentState == 100) or (.currentState == 200) or (.currentState == 300))) then
-									.currentState = (.currentState | tostring)
-								else
-									.currentState = "UNKNOWN"
-								end
-							| .currentState + ":::" + .endpointType + ":::" + .name + "=>" + (._links.self.href | split("/"))[-1]
-						'
-					)
+				read -d '' -ra AllGateways < <( \
+					jq -r '
+						select(._embedded.endpoints != null)
+						| ._embedded.endpoints[]
+						| select(.endpointType
+							| contains("GW"))
+						| if ((.status == 100) or (.status == 200) or (.status == 300) or (.status == 600) or (.status == 700)) then
+								.currentState = "NRG"
+							elif ((.status == 500) or (.status == 800) or (.status == 900)) then
+								.currentState = "ERR"
+							elif ((.status == 400) and ((.currentState == 100) or (.currentState == 200) or (.currentState == 300))) then
+								.currentState = (.currentState | tostring)
+							else
+								.currentState = "UNKNOWN"
+							end
+						| .currentState + ":::" + .endpointType + ":::" + .name + "=>" + (._links.self.href | split("/"))[-1]
+					' <<< "${OutputJSON}"
 				)
 
 				if [[ ${#AllGateways[*]} -eq 0 ]]; then
@@ -1558,16 +1551,14 @@ function GetObjects() {
 				# Gather all objects which match one of the following in order of check A) FilterString=OnlyIfFollowed B) PrimaryFilterString=OnlyFirstList
 				# [1/2/3/X]00:::[REG_ATTEMPTS_LEFT]:::[REGISTRATIONKEY]=>[UUID]
 				#  STATUS = 100:NEW, 200:PROVISIONING, 300:PROVISIONED, 400:REGISTERED, 500:ERROR, 600:UPDATING, 700:REPLACING, 800:DELETING, 900:DELETED
-				AllEndpoints=( \
-					$(echo "${OutputJSON}" \
-						| jq -r '
-							select(._embedded.endpoints != null)
-							| ._embedded.endpoints
-							| .[]
-							| select(.name == "'${FilterString:-${PrimaryFilterString:-.}}'")
-							| (.status | tostring) + ":::" + (.registrationAttemptsLeft | tostring) + ":::" + .registrationKey + "=>" + (._links.self.href | split("/"))[-1]
-						'
-					)
+				read -d '' -ra AllEndpoints < <( \
+					jq -r '
+						select(._embedded.endpoints != null)
+						| ._embedded.endpoints
+						| .[]
+						| select(.name == "'${FilterString:-${PrimaryFilterString:-.}}'")
+						| (.status | tostring) + ":::" + (.registrationAttemptsLeft | tostring) + ":::" + .registrationKey + "=>" + (._links.self.href | split("/"))[-1]
+					' <<< "${OutputJSON}"
 				)
 
 				# If the FilterString (AKA finite name) returned a single status and UUID.
@@ -1593,30 +1584,28 @@ function GetObjects() {
 				# [1/2/3/X]00:::[TYPE]:::[NAME]:::[UUID]
 				#  STATUS = 100:NEW, 200:PROVISIONING, 300:PROVISIONED, 400:REGISTERED, 500:ERROR, 600:UPDATING, 700:REPLACING, 800:DELETING, 900:DELETED
 				#  STATE  = 100:REGISTERING, 200:OFFLINE, 300:ONLINE
-				AllEndpoints=( \
-					$(echo "${OutputJSON}" \
-						| jq -r '
-							(
-								select(._embedded.endpoints != null)
-								| ._embedded.endpoints
-								| group_by(.endpointType)[]
-								| sort_by(.name)
-								| .[]
-							), select(.name != null)
-							| if ((.status == 100) or (.status == 200) or (.status == 300) or (.status == 600) or (.status == 700)) then
-									.currentState = "NRG"
-								elif ((.status == 500) or (.status == 800) or (.status == 900)) then
-									.currentState = "ERR"
-								elif ((.status == 400) and ((.currentState == 100) or (.currentState == 200) or (.currentState == 300))) then
-									.currentState = (.currentState | tostring)
-								else
-									.currentState = "UNKNOWN"
-								end
-							| .currentState + ":::" + .endpointType + ":::" + .name + "=>" + (._links.self.href | split("/"))[-1]
-						' \
-						| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}" \
-						| grep -Ev "${SecondaryFilter}"
-					)
+				read -d '' -ra AllEndpoints < <( \
+					jq -r '
+						(
+							select(._embedded.endpoints != null)
+							| ._embedded.endpoints
+							| group_by(.endpointType)[]
+							| sort_by(.name)
+							| .[]
+						), select(.name != null)
+						| if ((.status == 100) or (.status == 200) or (.status == 300) or (.status == 600) or (.status == 700)) then
+								.currentState = "NRG"
+							elif ((.status == 500) or (.status == 800) or (.status == 900)) then
+								.currentState = "ERR"
+							elif ((.status == 400) and ((.currentState == 100) or (.currentState == 200) or (.currentState == 300))) then
+								.currentState = (.currentState | tostring)
+							else
+								.currentState = "UNKNOWN"
+							end
+						| .currentState + ":::" + .endpointType + ":::" + .name + "=>" + (._links.self.href | split("/"))[-1]
+					' <<< "${OutputJSON}" \
+					| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}" \
+					| grep -Ev "${SecondaryFilter}"
 				)
 
 				# No reason to continue if there are no objects to analyze.
@@ -1682,10 +1671,10 @@ function GetObjects() {
 								! wait ${BGPID[1]} && (( AskDelete++ ))
 								trap 'GoToExit 2' SIGINT SIGTERM # Reset CTRL+C events.
 								[[ ${AskDelete:-0} -eq 3 ]] \
-									&& PrintHelper "BOXITEMASUB" "......." "${FBlack};${BRed}:::WARNING" "No EndpointGroup, AppWAN, or Service associations were found." \
+									&& PrintHelper "BOXITEMASUB" "......." "${FBlack};${BYellow}:::WARNING" "No EndpointGroup, AppWAN, or Service associations were found." \
 									&& (GetYorN "Do you wish to remove \"${Target_ENDPOINT[0]##*:::}\"?" "No" "10" \
-										&& SetObjects "DELENDPOINT" "${Target_ENDPOINT[1]}" \
-										|| ClearLines "2")
+										&& SetObjects "DELENDPOINT" "${Target_ENDPOINT[1]}") \
+									&& ClearLines "2"
 							;;
 						esac
 
@@ -1736,16 +1725,14 @@ function GetObjects() {
 				PrintHelper "BOXHEADLINEA" "ITEM #" "${Normal}:::TYPE/CLASS/INDICATOR" "DESCRIPTION=>UUID" >&2
 
 				# Gather all objects which match one of the following in order of check A) FilterString=OnlyIfFollowed B) PrimaryFilterString=OnlyFirstList
-				AllEndpointGroups=( \
-					$(echo "${OutputJSON}" \
-						| jq -r '
-							select(._embedded.endpointGroups != null)
-							| ._embedded.endpointGroups
-							| .[]
-							| .name + "=>" + (._links.self.href | split("/"))[-1]
-						' \
-						| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}"
-					)
+				read -d '' -ra AllEndpointGroups < <( \
+					jq -r '
+						select(._embedded.endpointGroups != null)
+						| ._embedded.endpointGroups
+						| .[]
+						| .name + "=>" + (._links.self.href | split("/"))[-1]
+					' <<< "${OutputJSON}" \
+					| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}" \
 				)
 
 				# No reason to continue if there are no objects to analyze.
@@ -1775,10 +1762,10 @@ function GetObjects() {
 						PrintHelper "BOXITEMASUBLINEA"
 
 						! GetObjects "ENDPOINTS" "endpointGroups/${Target_ENDPOINTGROUP[1]}/endpoints" 2>/dev/null \
-							&& PrintHelper "BOXITEMASUB" "EPT...." "${FBlack};${BRed}:::WARNING" "No direct Endpoint associations were found." \
-							&& (GetYorN "Do you wish to remove \"${Target_ENDPOINTGROUP[0]}\"" "No" "10" \
-								&& SetObjects "DELENDPOINTGROUP" "${Target_ENDPOINTGROUP[1]}" \
-								|| ClearLines "2")
+							&& PrintHelper "BOXITEMASUB" "EPT...." "${FBlack};${BYellow}:::WARNING" "No direct Endpoint associations were found." \
+							&& (GetYorN "Do you wish to remove \"${Target_ENDPOINTGROUP[0]}\"?" "No" "10" \
+								&& SetObjects "DELENDPOINTGROUP" "${Target_ENDPOINTGROUP[1]}") \
+							&& ClearLines "2"
 
 						[[ $((i+1)) -eq ${#AllEndpointGroups[*]} ]] \
 							|| PrintHelper "BOXMIDLINEA" >&2
@@ -1799,10 +1786,10 @@ function GetObjects() {
 
 							PrintHelper "BOXITEMASUB" "EPG$(printf "%04d" "$((i+1))")" "${Normal}:::ENDPOINTGROUP" "┏${AllEndpointGroups[${i}]}"
 							! GetObjects "ENDPOINTS" "endpointGroups/${Target_ENDPOINTGROUP[1]}/endpoints" 2>/dev/null \
-								&& PrintHelper "BOXITEMASUB" "EPT...." "${FBlack};${BRed}:::WARNING" "No direct Endpoint associations were found." \
-								&& (GetYorN "Do you wish to remove \"${Target_ENDPOINTGROUP[0]}\"" "No" "10" \
-									&& SetObjects "DELENDPOINTGROUP" "${Target_ENDPOINTGROUP[1]}" \
-									|| ClearLines "2")
+								&& PrintHelper "BOXITEMASUB" "EPT...." "${FBlack};${BYellow}:::WARNING" "No direct Endpoint associations were found." \
+								&& (GetYorN "Do you wish to remove \"${Target_ENDPOINTGROUP[0]}\"?" "No" "10" \
+									&& SetObjects "DELENDPOINTGROUP" "${Target_ENDPOINTGROUP[1]}") \
+								&& ClearLines "2"
 
 							[[ $((i+1)) -eq ${#AllEndpointGroups[*]} ]] \
 								|| PrintHelper "BOXMIDLINEA" >&2
@@ -1860,18 +1847,16 @@ function GetObjects() {
 				PrintHelper "BOXHEADLINEA" "ITEM #" "${Normal}:::TYPE/CLASS/INDICATOR" "DESCRIPTION=>UUID" >&2
 
 				# Gather all objects which match one of the following in order of check A) FilterString=OnlyIfFollowed B) PrimaryFilterString=OnlyFirstList
-				AllServices=( \
-					$(echo "${OutputJSON}" \
-						| jq -r '
-							select(._embedded.services != null)
-							| ._embedded.services
-							| group_by(.endpointId,.serviceClass)[]
-								| sort_by(.name)
-							| .[]
-							| .serviceClass + ":::" + .name + "=>" + .endpointId + "=>" + (._links.self.href | split("/"))[-1]
-						' \
-						| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}"
-					)
+				read -d '' -ra AllServices < <( \
+					jq -r '
+						select(._embedded.services != null)
+						| ._embedded.services
+						| group_by(.endpointId,.serviceClass)[]
+							| sort_by(.name)
+						| .[]
+						| .serviceClass + ":::" + .name + "=>" + .endpointId + "=>" + (._links.self.href | split("/"))[-1]
+					' <<< "${OutputJSON}" \
+					| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}" \
 				)
 
 				# No reason to continue if there are no objects to analyze.
@@ -1933,8 +1918,8 @@ function GetObjects() {
 						[[ ${AskDelete:-0} -eq 2 ]] \
 							&& PrintHelper "BOXITEMASUB" "SRV...." "${FBlack};${BYellow}:::WARNING" "No direct Endpoint or AppWAN associations were found." \
 							&& (GetYorN "Do you wish to remove \"${Target_SERVICE[0]##*:::}\"?" "No" "10" \
-								&& SetObjects "DELSERVICE" "${Target_SERVICE[1]}" \
-								|| ClearLines "2")
+								&& SetObjects "DELSERVICE" "${Target_SERVICE[1]}") \
+							&& ClearLines "2"
 
 						[[ $((i+1)) -eq ${#AllServices[*]} ]] \
 							|| PrintHelper "BOXMIDLINEA" >&2
@@ -1982,17 +1967,15 @@ function GetObjects() {
 				PrintHelper "BOXHEADLINEA" "ITEM #" "${Normal}:::TYPE/CLASS/INDICATOR" "DESCRIPTION=>UUID" >&2
 
 				# Gather all objects which match one of the following in order of check A) FilterString=OnlyIfFollowed B) PrimaryFilterString=OnlyFirstList
-				AllAppWANs=( \
-					$(echo "${OutputJSON}" \
-						| jq -r '
-							select(._embedded.appWans != null)
-							| ._embedded.appWans
-							| sort_by(.name)
-							| .[]
-							| .name + "=>" + (._links.self.href | split("/"))[-1]
-						' \
-						| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}"
-					)
+				read -d '' -ra AllAppWANs < <( \
+					jq -r '
+						select(._embedded.appWans != null)
+						| ._embedded.appWans
+						| sort_by(.name)
+						| .[]
+						| .name + "=>" + (._links.self.href | split("/"))[-1]
+					' <<< "${OutputJSON}" \
+					| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}" \
 				)
 
 				# No reason to continue if there are no objects to analyze.
@@ -2077,8 +2060,8 @@ function GetObjects() {
 						[[ ${AskDelete:-0} -eq 3 ]] \
 							&& PrintHelper "BOXITEMASUB" "EPT...." "${FBlack};${BYellow}:::WARNING" "No direct Endpoint, EndpointGroup, or Service associations were found." \
 							&& (GetYorN "Do you wish to remove \"${Target_APPWAN[0]##*:::}\"?" "No" "10" \
-								&& SetObjects "DELAPPWAN" "${Target_APPWAN[1]}" \
-								|| ClearLines "2")
+								&& SetObjects "DELAPPWAN" "${Target_APPWAN[1]}") \
+							&& ClearLines "2"
 
 						[[ $((i+1)) -eq ${#AllAppWANs[*]} ]] \
 							|| PrintHelper "BOXMIDLINEA" >&2
@@ -2134,20 +2117,18 @@ function SearchShards() {
 			# 2/BEGINEPOCHMILLI 3/ENDEPOCHMILLI
 			DATASyntax="--data '{\"aggs\":{\"EndpointName\":{\"terms\":{\"field\":\"commonName.keyword\",\"size\":10000,\"order\":{\"lastTimeOnline\":\"desc\"}},\"aggs\":{\"lastTimeOnline\":{\"max\":{\"field\":\"@timestamp\"}}}}},\"query\":{\"bool\":{\"must\":[{\"match_all\":{}},{\"match_phrase\":{\"networkId\":{\"query\":\"${Target_NETWORK[0]}\"}}},{\"range\":{\"@timestamp\":{\"gte\":\"${2}\",\"lte\":\"${3}\",\"format\":\"epoch_millis\"}}},{\"match_phrase\":{\"organizationId\":{\"query\":\"${Target_ORGANIZATION[0]}\"}}}],\"must_not\":[{\"match_phrase\":{\"nodeType.keyword\":{\"query\":\"TransferNode\"}}}]}},\"size\":0}'"
 			if ProcessResponse "${POSTSyntax} ${DATASyntax}" "${APIRESTURL}/elastic/ncvtchistorical/${Target_ORGANIZATION[0]}/_search/" "200"; then
-				SearchShardsReturn=( \
-					$(echo ${OutputJSON} \
-						| jq -r '
-							if type=="array" then
-								(.[] | "NOTREADY: " + .message)
-							elif .hits.total==0 then
-								"NO SHARDS"
-							else
-								select(.aggregations != null)
-									| .aggregations.EndpointName.buckets[]
-									| .key + "=>" + .lastTimeOnline.value_as_string
-							end
-						' 2>&1
-					)
+				read -d '' -ra SearchShardsReturn < <( \
+					jq -r '
+						if type=="array" then
+							(.[] | "NOTREADY: " + .message)
+						elif .hits.total==0 then
+							"NO SHARDS"
+						else
+							select(.aggregations != null)
+								| .aggregations.EndpointName.buckets[]
+								| .key + "=>" + .lastTimeOnline.value_as_string
+						end
+					' <<< "${OutputJSON}" 2>&1
 				)
 				return 0
 			else
@@ -2159,24 +2140,22 @@ function SearchShards() {
 			# 2/BEGINEPOCHMILLI 3/RESOURCEID 4/ENDPOINTUUID
 			DATASyntax="--data '{\"query\":{\"bool\":{\"must\":[{\"query_string\":{\"query\":\"*\",\"analyze_wildcard\":true}},{\"match_phrase\":{\"tags.keyword\":{\"query\":\"customer\"}}},{\"range\":{\"@timestamp\":{\"gte\":${2},\"lte\":${3},\"format\":\"epoch_millis\"}}},{\"match_phrase\":{\"organizationId\":{\"query\":\"${Target_ORGANIZATION[0]}\"}}},{\"match_phrase\":{\"networkId\":{\"query\":\"${Target_NETWORK[0]}\"}}},{\"match_phrase\":{\"resourceId\":{\"query\":\"${4}\"}}}],\"must_not\":[{\"match_phrase\":{\"changeType\":{\"query\":\"soft\"}}}]}},\"size\":10000,\"sort\":[{\"@timestamp\":{\"order\":\"desc\",\"unmapped_type\":\"boolean\"}}],\"_source\":{\"excludes\":[]}}'"
 			if ProcessResponse "${POSTSyntax} ${DATASyntax}" "${APIRESTURL}/elastic/ncentityevent/${Target_ORGANIZATION[0]}/_search/" "200"; then
-				SearchShardsReturn=( \
-					$(echo ${OutputJSON} \
-						| jq -r '
-							if type=="array" then
-								(.[] | "NOTREADY: " + .message)
-							elif .hits.total==0 then
-								"NO SHARDS"
-							else
-								select(.hits != null)
-									| .hits.hits[]._source
-									| ."@timestamp"
-										+ "=>" + .eventDescription
-										+ "=>" + (.ip // "UNKNOWN") + ":" + (.port // "UNKNOWN")
-										+ "=>" + (.geo.city_name // "UNKNOWN") + "/" + (.geo.country_name // "UNKNOWN")
-										+ "=>" + ((.geo.latitude // "0")|tostring) + "," + ((.geo.longitude // "0")|tostring)
-							end
-						' 2>&1
-					)
+				read -d '' -ra SearchShardsReturn < <( \
+					jq -r '
+						if type=="array" then
+							(.[] | "NOTREADY: " + .message)
+						elif .hits.total==0 then
+							"NO SHARDS"
+						else
+							select(.hits != null)
+								| .hits.hits[]._source
+								| ."@timestamp"
+									+ "=>" + .eventDescription
+									+ "=>" + (.ip // "UNKNOWN") + ":" + (.port // "UNKNOWN")
+									+ "=>" + (.geo.city_name // "UNKNOWN") + "/" + (.geo.country_name // "UNKNOWN")
+									+ "=>" + ((.geo.latitude // "0")|tostring) + "," + ((.geo.longitude // "0")|tostring)
+						end
+					' <<< "${OutputJSON}" 2>&1
 				)
 				return 0
 			else
@@ -2188,33 +2167,31 @@ function SearchShards() {
 			# 2/BEGINDATE 3/ENDDATE 4/INCREMENT 5/ENDPOINTUUID
 			DATASyntax="--data '{\"size\":0,\"query\":{\"bool\":{\"must\":[{\"match_all\":{}},{\"range\":{\"@timestamp\":{\"gte\":\"${2}\",\"lte\":\"${3}\"}}},{\"match_phrase\":{\"networkId\":{\"query\":\"${Target_NETWORK[0]}\"}}},{\"match_phrase\":{\"organizationId\":{\"query\":\"${Target_ORGANIZATION[0]}\"}}},{\"match_phrase\":{\"resourceId\":{\"query\":\"${5}\"}}},{\"bool\":{\"should\":[{\"match_phrase\":{\"NetworkDataType\":\"DropTcpTx\"}},{\"match_phrase\":{\"NetworkDataType\":\"DropTcpRx\"}},{\"match_phrase\":{\"NetworkDataType\":\"DropUdpTx\"}},{\"match_phrase\":{\"NetworkDataType\":\"DropUdpRx\"}}],\"minimum_should_match\":1}}]}},\"aggs\":{\"Increments\":{\"date_histogram\":{\"field\":\"@timestamp\",\"interval\":\"${4}\",\"extended_bounds\":{\"min\":\"${2}\",\"max\":\"${3}\"},\"time_zone\":\"UTC\",\"min_doc_count\":0},\"aggs\":{\"EndpointName\":{\"terms\":{\"field\":\"resourceId.keyword\",\"order\":{\"TotalBytes\":\"desc\"}},\"aggs\":{\"TotalBytes\":{\"sum\":{\"field\":\"bytes\"}},\"ProtoBreakdown\":{\"filters\":{\"filters\":{\"DropTcpTx\":{\"query_string\":{\"query\":\"NetworkDataType:(DropTcpTx)\"}},\"DropTcpRx\":{\"query_string\":{\"query\":\"NetworkDataType:(DropTcpRx)\"}},\"DropUdpTx\":{\"query_string\":{\"query\":\"NetworkDataType:(DropUdpTx)\"}},\"DropUdpRx\":{\"query_string\":{\"query\":\"NetworkDataType:(DropUdpRx)\"}}}},\"aggs\":{\"Bytes\":{\"sum\":{\"field\":\"bytes\"}}}}}}}}}}'"
 			if ProcessResponse "${POSTSyntax} ${DATASyntax}" "${APIRESTURL}/elastic/ncvtchistorical/${Target_ORGANIZATION[0]}/_search/" "200"; then
-				SearchShardsReturn=( \
-					$(echo ${OutputJSON} \
-						| jq -r '
-							if type=="array" then
-								(.[] | "NOTREADY: " + .message)
-							elif .hits.total==0 then
-								"NO SHARDS"
-							else
-								[
-									select(.aggregations != null)
-										| .aggregations.Increments.buckets[]
-										| .key_as_string as $DATETIME
-										| (
-											.EndpointName.buckets[]
-											| ((.TotalBytes.value // 0)|tostring) as $TOTALBYTES
-											| .ProtoBreakdown.buckets
-											| ((.DropTcpRx.Bytes.value // 0)|tostring) as $TCPRXBYTES
-											| ((.DropTcpTx.Bytes.value // 0)|tostring) as $TCPTXBYTES
-											| ((.DropUdpRx.Bytes.value // 0)|tostring) as $UDPRXBYTES
-											| ((.DropUdpTx.Bytes.value // 0)|tostring) as $UDPTXBYTES
-											| ((.DropTcpRx.Bytes.value + .DropUdpRx.Bytes.value // 0)|tostring) as $BILLRXBYTES
-											| $DATETIME + "=>" + $TOTALBYTES + "," + $BILLRXBYTES + "," + $TCPRXBYTES + "," + $TCPTXBYTES + "," + $UDPRXBYTES + "," + $UDPTXBYTES
-										) // $DATETIME + "=>0,0,0,0,0,0"
-								] | reverse[]
-							end
-						' 2>&1
-					)
+				read -d '' -ra SearchShardsReturn < <( \
+					jq -r '
+						if type=="array" then
+							(.[] | "NOTREADY: " + .message)
+						elif .hits.total==0 then
+							"NO SHARDS"
+						else
+							[
+								select(.aggregations != null)
+									| .aggregations.Increments.buckets[]
+									| .key_as_string as $DATETIME
+									| (
+										.EndpointName.buckets[]
+										| ((.TotalBytes.value // 0)|tostring) as $TOTALBYTES
+										| .ProtoBreakdown.buckets
+										| ((.DropTcpRx.Bytes.value // 0)|tostring) as $TCPRXBYTES
+										| ((.DropTcpTx.Bytes.value // 0)|tostring) as $TCPTXBYTES
+										| ((.DropUdpRx.Bytes.value // 0)|tostring) as $UDPRXBYTES
+										| ((.DropUdpTx.Bytes.value // 0)|tostring) as $UDPTXBYTES
+										| ((.DropTcpRx.Bytes.value + .DropUdpRx.Bytes.value // 0)|tostring) as $BILLRXBYTES
+										| $DATETIME + "=>" + $TOTALBYTES + "," + $BILLRXBYTES + "," + $TCPRXBYTES + "," + $TCPTXBYTES + "," + $UDPRXBYTES + "," + $UDPTXBYTES
+									) // $DATETIME + "=>0,0,0,0,0,0"
+							] | reverse[]
+						end
+					' <<< "${OutputJSON}" 2>&1
 				)
 				return 0
 			else
@@ -2226,34 +2203,32 @@ function SearchShards() {
 			# 2/BEGINDATE 3/ENDDATE 4/INCREMENT
 			DATASyntax="--data '{\"size\":0,\"query\":{\"bool\":{\"must\":[{\"match_all\":{}},{\"range\":{\"@timestamp\":{\"gte\":\"${2}\",\"lte\":\"${3}\"}}},{\"match_phrase\":{\"networkId\":{\"query\":\"${Target_NETWORK[0]}\"}}},{\"match_phrase\":{\"organizationId\":{\"query\":\"${Target_ORGANIZATION[0]}\"}}},{\"bool\":{\"should\":[{\"match_phrase\":{\"NetworkDataType\":\"DropTcpTx\"}},{\"match_phrase\":{\"NetworkDataType\":\"DropTcpRx\"}},{\"match_phrase\":{\"NetworkDataType\":\"DropUdpTx\"}},{\"match_phrase\":{\"NetworkDataType\":\"DropUdpRx\"}}],\"minimum_should_match\":1}}]}},\"aggs\":{\"Months\":{\"date_histogram\":{\"field\":\"@timestamp\",\"interval\":\"${4}\",\"time_zone\":\"UTC\",\"min_doc_count\":0},\"aggs\":{\"CommonName\":{\"terms\":{\"field\":\"commonName.keyword\",\"size\":10000,\"order\":{\"TotalBytes\":\"desc\"}},\"aggs\":{\"TotalBytes\":{\"sum\":{\"field\":\"bytes\"}},\"ProtoBreakdown\":{\"filters\":{\"filters\":{\"DropTcpTx\":{\"query_string\":{\"query\":\"NetworkDataType:(DropTcpTx)\"}},\"DropTcpRx\":{\"query_string\":{\"query\":\"NetworkDataType:(DropTcpRx)\"}},\"DropUdpTx\":{\"query_string\":{\"query\":\"NetworkDataType:(DropUdpTx)\"}},\"DropUdpRx\":{\"query_string\":{\"query\":\"NetworkDataType:(DropUdpRx)\"}}}},\"aggs\":{\"Bytes\":{\"sum\":{\"field\":\"bytes\"}}}}}}}}}}'"
 			if ProcessResponse "${POSTSyntax} ${DATASyntax}" "${APIRESTURL}/elastic/ncvtchistorical/${Target_ORGANIZATION[0]}/_search/" "200"; then
-				SearchShardsReturn=( \
-					$(echo ${OutputJSON} \
-						| jq -r '
-						  if type=="array" then
-						    (.[] | "NOTREADY: " + .message)
-						  elif .hits.total==0 then
-						    "NO SHARDS"
-						  else
-						    [
-						      select(.aggregations != null)
-						        | .aggregations.Months.buckets[]
-						        | .key_as_string as $DATETIME
-						        | (
-						          .CommonName.buckets[]
-						          | ((.TotalBytes.value // 0)|tostring) as $TOTALBYTES
-						          | .key as $ENDPOINTNAME
-						          | .ProtoBreakdown.buckets
-						          | ((.DropTcpRx.Bytes.value // 0)|tostring) as $TCPRXBYTES
-						          | ((.DropTcpTx.Bytes.value // 0)|tostring) as $TCPTXBYTES
-						          | ((.DropUdpRx.Bytes.value // 0)|tostring) as $UDPRXBYTES
-						          | ((.DropUdpTx.Bytes.value // 0)|tostring) as $UDPTXBYTES
-						          | ((.DropTcpRx.Bytes.value + .DropUdpRx.Bytes.value // 0)|tostring) as $BILLRXBYTES
-						          | $ENDPOINTNAME + "=>" + $TOTALBYTES + "," + $BILLRXBYTES + "," + $TCPRXBYTES + "," + $TCPTXBYTES + "," + $UDPRXBYTES + "," + $UDPTXBYTES
-						        ) // $DATETIME + "=>0,0,0,0,0,0"
-						    ] | reverse[]
-						  end
-						' 2>&1
-					)
+				read -d '' -ra SearchShardsReturn < <( \
+					jq -r '
+						if type=="array" then
+						(.[] | "NOTREADY: " + .message)
+						elif .hits.total==0 then
+						"NO SHARDS"
+						else
+						[
+							select(.aggregations != null)
+							| .aggregations.Months.buckets[]
+							| .key_as_string as $DATETIME
+							| (
+								.CommonName.buckets[]
+								| ((.TotalBytes.value // 0)|tostring) as $TOTALBYTES
+								| .key as $ENDPOINTNAME
+								| .ProtoBreakdown.buckets
+								| ((.DropTcpRx.Bytes.value // 0)|tostring) as $TCPRXBYTES
+								| ((.DropTcpTx.Bytes.value // 0)|tostring) as $TCPTXBYTES
+								| ((.DropUdpRx.Bytes.value // 0)|tostring) as $UDPRXBYTES
+								| ((.DropUdpTx.Bytes.value // 0)|tostring) as $UDPTXBYTES
+								| ((.DropTcpRx.Bytes.value + .DropUdpRx.Bytes.value // 0)|tostring) as $BILLRXBYTES
+								| $ENDPOINTNAME + "=>" + $TOTALBYTES + "," + $BILLRXBYTES + "," + $TCPRXBYTES + "," + $TCPTXBYTES + "," + $UDPRXBYTES + "," + $UDPTXBYTES
+							) // $DATETIME + "=>0,0,0,0,0,0"
+						] | reverse[]
+						end
+					' <<< "${OutputJSON}" 2>&1
 				)
 				return 0
 			else
@@ -2265,32 +2240,30 @@ function SearchShards() {
 			# 2/BEGINDATE 3/ENDDATE 4/INCREMENT
 			DATASyntax="--data '{\"size\":0,\"query\":{\"bool\":{\"must\":[{\"match_all\":{}},{\"range\":{\"@timestamp\":{\"gte\":\"${2}\",\"lte\":\"${3}\"}}},{\"match_phrase\":{\"networkId\":{\"query\":\"${Target_NETWORK[0]}\"}}},{\"match_phrase\":{\"organizationId\":{\"query\":\"${Target_ORGANIZATION[0]}\"}}},{\"bool\":{\"should\":[{\"match_phrase\":{\"NetworkDataType\":\"DropTcpTx\"}},{\"match_phrase\":{\"NetworkDataType\":\"DropTcpRx\"}},{\"match_phrase\":{\"NetworkDataType\":\"DropUdpTx\"}},{\"match_phrase\":{\"NetworkDataType\":\"DropUdpRx\"}}],\"minimum_should_match\":1}}]}},\"aggs\":{\"Months\":{\"date_histogram\":{\"field\":\"@timestamp\",\"interval\":\"${4}\",\"extended_bounds\":{\"min\":\"${2}\",\"max\":\"${3}\"},\"time_zone\":\"UTC\",\"min_doc_count\":0},\"aggs\":{\"TotalBytes\":{\"sum\":{\"field\":\"bytes\"}},\"ProtoBreakdown\":{\"filters\":{\"filters\":{\"DropTcpTx\":{\"query_string\":{\"query\":\"NetworkDataType:(DropTcpTx)\"}},\"DropTcpRx\":{\"query_string\":{\"query\":\"NetworkDataType:(DropTcpRx)\"}},\"DropUdpTx\":{\"query_string\":{\"query\":\"NetworkDataType:(DropUdpTx)\"}},\"DropUdpRx\":{\"query_string\":{\"query\":\"NetworkDataType:(DropUdpRx)\"}}}},\"aggs\":{\"Bytes\":{\"sum\":{\"field\":\"bytes\"}}}}}}}}'"
 			if ProcessResponse "${POSTSyntax} ${DATASyntax}" "${APIRESTURL}/elastic/ncvtchistorical/${Target_ORGANIZATION[0]}/_search/" "200"; then
-				SearchShardsReturn=( \
-					$(echo ${OutputJSON} \
-						| jq -r '
-						  if type=="array" then
-						    (.[] | "NOTREADY: " + .message)
-						  elif .hits.total==0 then
-						    "NO SHARDS"
-						  else
-						    [
-						      select(.aggregations != null)
-						        | .aggregations.Months.buckets[]
-						        | .key_as_string as $DATETIME
-						        | ((.TotalBytes.value // 0)|tostring) as $TOTALBYTES
-						        | (
-						          .ProtoBreakdown.buckets
-						          | ((.DropTcpRx.Bytes.value // 0)|tostring) as $TCPRXBYTES
-						          | ((.DropTcpTx.Bytes.value // 0)|tostring) as $TCPTXBYTES
-						          | ((.DropUdpRx.Bytes.value // 0)|tostring) as $UDPRXBYTES
-						          | ((.DropUdpTx.Bytes.value // 0)|tostring) as $UDPTXBYTES
-						          | ((.DropTcpRx.Bytes.value + .DropUdpRx.Bytes.value // 0)|tostring) as $BILLRXBYTES
-						          | $DATETIME + "=>" + $TOTALBYTES + "," + $BILLRXBYTES + "," + $TCPRXBYTES + "," + $TCPTXBYTES + "," + $UDPRXBYTES + "," + $UDPTXBYTES
-						        ) // $DATETIME + "=>0,0,0,0,0,0"
-						    ] | reverse[]
-						  end
-						' 2>&1
-					)
+				read -d '' -ra SearchShardsReturn < <( \
+					jq -r '
+						if type=="array" then
+						(.[] | "NOTREADY: " + .message)
+						elif .hits.total==0 then
+						"NO SHARDS"
+						else
+						[
+							select(.aggregations != null)
+							| .aggregations.Months.buckets[]
+							| .key_as_string as $DATETIME
+							| ((.TotalBytes.value // 0)|tostring) as $TOTALBYTES
+							| (
+								.ProtoBreakdown.buckets
+								| ((.DropTcpRx.Bytes.value // 0)|tostring) as $TCPRXBYTES
+								| ((.DropTcpTx.Bytes.value // 0)|tostring) as $TCPTXBYTES
+								| ((.DropUdpRx.Bytes.value // 0)|tostring) as $UDPRXBYTES
+								| ((.DropUdpTx.Bytes.value // 0)|tostring) as $UDPTXBYTES
+								| ((.DropTcpRx.Bytes.value + .DropUdpRx.Bytes.value // 0)|tostring) as $BILLRXBYTES
+								| $DATETIME + "=>" + $TOTALBYTES + "," + $BILLRXBYTES + "," + $TCPRXBYTES + "," + $TCPTXBYTES + "," + $UDPRXBYTES + "," + $UDPTXBYTES
+							) // $DATETIME + "=>0,0,0,0,0,0"
+						] | reverse[]
+						end
+					' <<< "${OutputJSON}" 2>&1
 				)
 				return 0
 			else
@@ -3277,7 +3250,7 @@ function SetObjects() {
 				)
 				return 0
 			else
-				SetObjectReturn="${OutputJSON}"
+				SetObjectReturn[0]="${OutputJSON}"
 				return 1
 			fi
 		;;
@@ -3285,18 +3258,18 @@ function SetObjects() {
 		"DELAPPWAN")
 			# 2/UUID
 			if ProcessResponse "${DELETESyntax}" "${APIRESTURL}/networks/${Target_NETWORK[0]}/appWans/${2}" "202"; then
-				SetObjectReturn=( \
-					$(echo ${OutputJSON} | jq -r '
+				read -d '' -ra SetObjectReturn < <( \
+					jq -r '
 						if type=="array" then
 							(.[] | "NOTREADY: " + .message)
 						else
 							empty
-						end' 2>&1
-					)
+						end
+					' <<< "${OutputJSON}" 2>&1
 				)
 				return 0
 			else
-				SetObjectReturn="${OutputJSON}"
+				SetObjectReturn[0]="${OutputJSON}"
 				return 1
 			fi
 		;;
@@ -3306,14 +3279,14 @@ function SetObjects() {
 			DATASyntax="--data '{\"name\":\""${2}"\",\"source\":null,\"syncId\":null}'"
 			ProcessResponse "${POSTSyntax} ${DATASyntax}" "${APIRESTURL}/networks/${Target_NETWORK[0]}/endpointGroups" "201" \
 				|| return 1
-			SetObjectReturn=( \
-				$(echo ${OutputJSON} | jq -r '
+			read -d '' -ra SetObjectReturn < <( \
+				jq -r '
 					if type=="array" then
 						(.[] | "NOTREADY: " + .message)
 					else
-						(select(.name != null) | "READY")
-					end' 2>&1
-				)
+						empty
+					end
+				' <<< "${OutputJSON}" 2>&1
 			)
 			[[ ${SetObjectReturn:-NOTREADY} =~ "NOTREADY" ]] \
 				&& return 1 \
@@ -3346,14 +3319,14 @@ function SetObjects() {
 			DATASyntax="--data '{\"serviceClass\":\"GW\",\"serviceInterceptType\":\"IP\",\"serviceType\":\"ALL\",\"lowLatency\":\"YES\",\"dataInterleaving\":\"NO\",\"transparency\":\"NO\",\"localNetworkGateway\":\"YES\",\"multicast\":\"OFF\",\"dnsOptions\":\"NONE\",\"icmpTunnel\":\"YES\",\"cryptoLevel\":\"STRONG\",\"permanentConnection\":\"NO\",\"collectionLocation\":\"BOTH\",\"pbrType\":\"WAN\",\"rateSmoothing\":\"NO\",\"networkIp\":null,\"networkNetmask\":null,\"networkFirstPort\":0,\"networkLastPort\":0,\"interceptFirstPort\":0,\"interceptLastPort\":0,\"protectionGroupId\":null,\"portInterceptMode\":\"INTERCEPT_ALL\",\"endpointId\":\""${2}"\",\"name\":\""${3}"\",\"interceptIp\":\""${4}"\",\"gatewayIp\":\""${5}"\",\"gatewayCidrBlock\":\""${6}"\"}'"
 			ProcessResponse "${POSTSyntax} ${DATASyntax}" "${APIRESTURL}/networks/${Target_NETWORK[0]}/services" "202" \
 				|| return 1
-			SetObjectReturn=( \
-				$(echo ${OutputJSON} | jq -r '
+			read -d '' -ra SetObjectReturn < <( \
+				jq -r '
 					if type=="array" then
 						(.[] | "NOTREADY: " + .message)
 					else
 						(select(.name != null) .name + "=>" + (._links.self.href | split("/"))[-1])
-					end' 2>&1
-				)
+					end
+				' <<< "${OutputJSON}" 2>&1
 			)
 			[[ ${SetObjectReturn:-NOTREADY} =~ "NOTREADY" ]] \
 				&& return 1 \
@@ -3365,14 +3338,14 @@ function SetObjects() {
 			DATASyntax="--data '{\"name\":\""${2}"\",\"endpointType\":\""${3}"\",\"geoRegionId\":\""${4}"\",\"dataCenterId\":null,\"haEndpointType\":null,\"o365BreakoutNextHopIp\":null,\"source\":null,\"syncId\":null}'"
 			ProcessResponse "${POSTSyntax} ${DATASyntax}" "${APIRESTURL}/networks/${Target_NETWORK[0]}/endpoints" "202" \
 				return 1
-			SetObjectReturn=( \
-				$(echo ${OutputJSON} | jq -r '
+			read -d '' -ra SetObjectReturn < <( \
+				jq -r '
 					if type=="array" then
 						(.[] | "NOTREADY: " + .message)
 					else
 						(select(.registrationKey != null) | .registrationKey + "=>" + (._links.self.href | split("/"))[-1])
-					end' 2>&1
-				)
+					end
+				' <<< "${OutputJSON}" 2>&1
 			)
 			[[ ${SetObjectReturn:-NOTREADY} =~ "NOTREADY" ]] \
 				&& return 1 \
@@ -3381,9 +3354,10 @@ function SetObjects() {
 
 		"ADD"*"TOENDPOINTGROUP"|"DEL"*"FROMENDPOINTGROUP")
 			# 2/NAME=>UUID(s) 3/NAME=>ENDPOINTGROUPUUID
-			local AllUUIDs=( $(echo "${2}") )
-			local EndpointGroupUUID="${3##*=>}"
-			local SyntaxType SyntaxFlip URLTrail
+			local SyntaxType SyntaxFlip URLTrail 
+			local AllUUIDs EndpointGroupUUID
+			AllUUIDs=( $(echo "${2}") )
+			EndpointGroupUUID="${3##*=>}"
 
 			# Determine what is being added to interact with the API correctly.
 			# Only Endpoints are allowed to be added to EndpointGroups.
@@ -3533,14 +3507,14 @@ function SetObjects() {
 					local ExpectedStatus="202"
 					# The complete JSON object already in existance is required to update the name of a Service.
 					ProcessResponse "${GETSyntax}" "${APIRESTURL}/networks/${Target_NETWORK[0]}/${URLTrail}" "200"
-					SetObjectReturn=( \
-						$(echo ${OutputJSON} | jq -r '
+					read -d '' -ra SetObjectReturn < <( \
+						jq -r '
 							if (.name) then
 								(del(._links) | .name = "'${3}'")
 							else
 								"ERROR - Could not fetch existing JSON object for the Service."
-							end' 2>&1
-						)
+							end
+						' <<< "${OutputJSON}" 2>&1
 					)
 					[[ ${SetObjectReturn:-ERROR} =~ "ERROR" ]] \
 						&& return 1
@@ -4212,10 +4186,10 @@ function BulkCreateEndpoints() {
 
 			# Continue parsing.
 			Target_ENDPOINTTYPE="${EachLine[1]:-MISSINGTYPE}" # Local variable - TEXT.
-			Target_NETWORK="${EachLine[2]:-MISSINGNETWORK}" # Local variable - UUID.
-			Target_GEOREGION="${EachLine[3]:-MISSINGGEOREGION}" # Local variable - UUID.
-			AllEndpointGroups="${EachLine[4]:-NOENDPOINTGROUPS}" # Local variable - UUID.
-			AllAppWANs="${EachLine[5]:-NOAPPWANS}" # Local variable - UUID.
+			Target_NETWORK[0]="${EachLine[2]:-MISSINGNETWORK}" # Local variable - UUID.
+			Target_GEOREGION[0]="${EachLine[3]:-MISSINGGEOREGION}" # Local variable - UUID.
+			AllEndpointGroups[0]="${EachLine[4]:-NOENDPOINTGROUPS}" # Local variable - UUID.
+			AllAppWANs[0]="${EachLine[5]:-NOAPPWANS}" # Local variable - UUID.
 			Target_EMAIL[0]="${EachLine[6]:-NOEMAIL}" # Local array - EMAIL/TEXT.
 			Target_EMAIL[0]="${Target_EMAIL[0]//[[:space:]]/}" # Remove SPACES.
 			Target_EMAIL[0]="${Target_EMAIL[0]//\;/,}" # Convert semicolon to commas.
@@ -4234,12 +4208,12 @@ function BulkCreateEndpoints() {
 				AllAppWANs=( ${AllAppWANs} )
 				for ((i=0;i<${#AllAppWANs[*]};i++)); do AllAppWANsShort[${i}]="...${AllAppWANs[${i}]: -5}"; done
 			else
-				AllAppWANsShort='NOAPPWANS'
+				AllAppWANsShort[0]='NOAPPWANS'
 			fi
 			IFS=$'\n' # Reset field separator.
 
 			# Line checking.
-			if [[ ${Target_ENDPOINTNAME} == "MISSINGNAME" ]] || [[ ${Target_ENDPOINTTYPE} == "MISSINGTYPE" ]] || [[ ${Target_NETWORK} == "MISSINGNETWORK" ]] || [[ ${Target_GEOREGION} == "MISSINGGEOREGION" ]]; then
+			if [[ ${Target_ENDPOINTNAME[0]} == "MISSINGNAME" ]] || [[ ${Target_ENDPOINTTYPE} == "MISSINGTYPE" ]] || [[ ${Target_NETWORK[0]} == "MISSINGNETWORK" ]] || [[ ${Target_GEOREGION[0]} == "MISSINGGEOREGION" ]]; then
 				[[ ${ThisMode} == "PARSECHECKONLY" ]] \
 					&& AttentionMessage "ERROR" "The following line is missing required context. Ignoring line."
 				(( OutputCounter[3]++ )) # Increment the failure counter.
@@ -4261,15 +4235,15 @@ function BulkCreateEndpoints() {
 				(( OutputCounter[3]++ )) # Increment the failure counter.
 				(( OutputCounter[1]-- )) # Decrement the valid counter.
 				return 1
-			elif [[ ${AllEndpointGroups} != "NOENDPOINTGROUPS" ]] && [[ ${#AllEndpointGroups} -lt 36 ]]; then
-				[[ ${ThisMode} == "PARSECHECKONLY" ]] && [[ ${AllEndpointGroups} =~ "@" ]] \
+			elif [[ ${AllEndpointGroups[0]} != "NOENDPOINTGROUPS" ]] && [[ ${#AllEndpointGroups} -lt 36 ]]; then
+				[[ ${ThisMode} == "PARSECHECKONLY" ]] && [[ ${AllEndpointGroups[0]} =~ "@" ]] \
 					&& AttentionMessage "ERROR" "The following line contains EndpointGroup UUID(s) which have an email address instead of a UUID. Ignoring line." \
 					|| AttentionMessage "ERROR" "The following line contains EndpointGroup UUID(s) that are in error. Ignoring line."
 				(( OutputCounter[3]++ )) # Increment the failure counter.
 				(( OutputCounter[1]-- )) # Decrement the valid counter.
 				return 1
-			elif [[ ${AllAppWANs} != "NOAPPWANS" ]] && [[ ${#AllAppWANs} -lt 36 ]]; then
-				[[ ${ThisMode} == "PARSECHECKONLY" ]] && [[ ${AllAppWANs} =~ "@" ]] \
+			elif [[ ${AllAppWANs[0]} != "NOAPPWANS" ]] && [[ ${#AllAppWANs} -lt 36 ]]; then
+				[[ ${ThisMode} == "PARSECHECKONLY" ]] && [[ ${AllAppWANs[0]} =~ "@" ]] \
 					&& AttentionMessage "ERROR" "The following line contains AppWAN UUID(s) which have an email address instead of a UUID. Ignoring line." \
 					|| AttentionMessage "ERROR" "The following line contains AppWAN UUID(s) that are in error. Ignoring line."
 				(( OutputCounter[3]++ )) # Increment the failure counter.
@@ -4286,11 +4260,12 @@ function BulkCreateEndpoints() {
 	local i Target_ENDPOINTNAME Target_ENDPOINTTYPE Target_GEOREGION StoredAttributes
 	local Target_APPWAN Target_ENDPOINTGROUP AllEndpointGroups AllEndpointGroupsShort EndpointGroupState AllAppWANs AllAppWANsShort AppWANState
 	local InputLine EachLine BulkExportVar OutputCounter OutputCounterComplete
-	local BulkImportFile="${1}"
-	local TimeCapture=( "$(date +%s)" "0" "0" ) # EPOCH seconds. 1=CURRENT 2=ENDOFIMPORT 3=DELTA
-	local CSVHeader=( "NAME" "TYPE" "NETWORK_UUID" "GEOREGION_UUID" "ENDPOINTGROUP_UUIDS_[OPT]" "APPWAN_UUIDS_[OPT]" "EMAIL_[OPT]" "EMAIL_MSG_[OPT]" )
-	local BulkImportVar=$(grep -Ev '^[[:space:]]*$' ${BulkImportFile} | tr -dC '[:print:]\t\n') # Sanitized input.
-	local OutputFile="BulkEndpoints-OUTPUT_${TimeCapture[0]}.csv"
+	local BulkImportFile TimeCapture CSVHeader BulkImportVar OutputFile
+	BulkImportFile="${1}"
+	TimeCapture=( "$(date +%s)" "0" "0" ) # EPOCH seconds. 1=CURRENT 2=ENDOFIMPORT 3=DELTA
+	CSVHeader=( "NAME" "TYPE" "NETWORK_UUID" "GEOREGION_UUID" "ENDPOINTGROUP_UUIDS_[OPT]" "APPWAN_UUIDS_[OPT]" "EMAIL_[OPT]" "EMAIL_MSG_[OPT]" )
+	BulkImportVar=$(grep -Ev '^[[:space:]]*$' ${BulkImportFile} | tr -dC '[:print:]\t\n') # Sanitized input.
+	OutputFile="BulkEndpoints-OUTPUT_${TimeCapture[0]}.csv"
 
 	# Alert the user about how registration keys will be displayed.
 	[[ ${BulkCreateLogRegKey:-FALSE} == "TRUE" ]] \
@@ -4384,7 +4359,7 @@ function BulkCreateEndpoints() {
 					fi
 				done
 			else
-				EndpointGroupState="ADDEPG:NA"
+				EndpointGroupState[0]="ADDEPG:NA"
 			fi
 
 			# Attempt to add to an AppWAN before conclusion?
@@ -4402,7 +4377,7 @@ function BulkCreateEndpoints() {
 					fi
 				done
 			else
-				AppWANState="ADDAPW:NA"
+				AppWANState[0]="ADDAPW:NA"
 			fi
 
 			# Conclude.
@@ -4421,7 +4396,7 @@ function BulkCreateEndpoints() {
 				(( OutputCounter[3]++ ))
 				AttentionMessage "ERROR" " ┗━Endpoint creation failed. See message below."
 				echo "${StoredAttributes[0]:-NO MESSAGE RETURNED}"
-				echo "$(date +'%s'),${Target_ENDPOINTNAME},${Target_ENDPOINTTYPE},${Target_NETWORK},${Target_GEOREGION},CREATION_FAILED_NOUUID,CREATION_FAILED_NO_REGISTRATION_KEY,CREATION_FAILED_NO_ENDPOINTGROUP,CREATION_FAILED_NO_APPWAN,EMAIL:${Target_EMAIL[0]}" >> ${OutputFile}
+				echo "$(date +'%s'),${Target_ENDPOINTNAME},${Target_ENDPOINTTYPE},${Target_NETWORK[0]},${Target_GEOREGION},CREATION_FAILED_NOUUID,CREATION_FAILED_NO_REGISTRATION_KEY,CREATION_FAILED_NO_ENDPOINTGROUP,CREATION_FAILED_NO_APPWAN,EMAIL:${Target_EMAIL[0]}" >> ${OutputFile}
 				BulkExportVar="${BulkExportVar}${NewLine}${InputLine}"
 
 			# If the GetObject returns true, then this is not a failure as the Endpoint exists already.
@@ -4457,7 +4432,7 @@ function BulkCreateEndpoints() {
 							fi
 						done
 					else
-						EndpointGroupState="ADDEPG:NA"
+						EndpointGroupState[0]="ADDEPG:NA"
 					fi
 
 					# Attempt to add to an AppWAN before conclusion?
@@ -4475,7 +4450,7 @@ function BulkCreateEndpoints() {
 							fi
 						done
 					else
-						AppWANState="ADDAPW:NA"
+						AppWANState[0]="ADDAPW:NA"
 					fi
 
 					# Conclude.
@@ -4486,7 +4461,7 @@ function BulkCreateEndpoints() {
 
 					(( OutputCounter[3]++ ))
 					AttentionMessage "ERROR" " ┗━━Endpoint exists but has not registered yet and has run out of attempts. (STATE=${StoredAttributes[1]%:::*}) | ATTEMPTS LEFT=${StoredAttributes[1]#*:::})"
-					echo "$(date +'%s'),${Target_ENDPOINTNAME},${Target_ENDPOINTTYPE},${Target_NETWORK},${Target_GEOREGION},${StoredAttributes[0]:-UUID_NA},NO_ATTEMPTS_LEFT:${StoredAttributes[1]:-REGKEY:NA},EMAIL:${Target_EMAIL[0]}" >> ${OutputFile}
+					echo "$(date +'%s'),${Target_ENDPOINTNAME},${Target_ENDPOINTTYPE},${Target_NETWORK[0]},${Target_GEOREGION},${StoredAttributes[0]:-UUID_NA},NO_ATTEMPTS_LEFT:${StoredAttributes[1]:-REGKEY:NA},EMAIL:${Target_EMAIL[0]}" >> ${OutputFile}
 					BulkExportVar="${BulkExportVar}${NewLine}${InputLine}"
 
 				else
@@ -4611,7 +4586,7 @@ function CreateEndpoints() {
 							! GetFilterString "Fetching available AppWANs in \"${Target_NETWORK[1]}\"." \
 								&& break
 							GetObjects "APPWANS" &>/dev/null
-							! GetSelection "Select the target AppWAN to associate \"${Target_ENDPOINTNAME}\" with." "${AllAppWANs[*]}" "${Target_ASSOCIATION}" \
+							! GetSelection "Select the target AppWAN to associate \"${Target_ENDPOINTNAME}\" with." "${AllAppWANs[*]}" "${Target_ASSOCIATION[0]}" \
 								&& break
 							Target_ASSOCIATION[0]="APPWAN"
 							Target_ASSOCIATION[1]="${UserResponse}"
@@ -4646,10 +4621,10 @@ function CreateEndpoints() {
 						echo "NAME:          \"${Target_ENDPOINTNAME}\""
 						echo "TYPE:          \"${Target_ENDPOINTTYPE}\""
 						echo "REGION:        \"${Target_GEOREGION%%=>*}\""
-						[[ -z ${Target_ASSOCIATION} ]] \
+						[[ -z ${Target_ASSOCIATION[0]} ]] \
 							&& echo "ASSOCIATION:   \"No Association\"" \
 							|| echo "ASSOCIATION:   \"${Target_ASSOCIATION[0]}=>${Target_ASSOCIATION[1]%%=>*}\""
-						[[ -z ${Target_EMAIL} ]] \
+						[[ -z ${Target_EMAIL[0]} ]] \
 							&& echo "EMAIL ALERT:   \"NONE\"" \
 							|| echo "EMAIL ALERT:   \"${Target_EMAIL[0]}\" FROM \"${Target_EMAIL[1]}\""
 						GetYorN "Ready?" \
@@ -4666,7 +4641,7 @@ function CreateEndpoints() {
 
 							AttentionMessage "VALIDATED" "ENDPOINT_NAME=\"${Target_ENDPOINTNAME}\", ENDPOINT_TYPE=\"${Target_ENDPOINTTYPE}\", ENDPOINT_UUID=\"${Target_ENDPOINTUUID}\", REGISTRATIONKEY=\"${Target_ENDPOINTKEY}\"."
 
-							if [[ -n ${Target_ASSOCIATION} ]]; then
+							if [[ -n ${Target_ASSOCIATION[0]} ]]; then
 								AttentionMessage "GREENINFO" "Adding \"${Target_ENDPOINTNAME}\" to ${Target_ASSOCIATION[0]} \"${Target_ASSOCIATION[1]%%=>*}\"."
 								! SetObjects "ADDENDPOINTTO${Target_ASSOCIATION[0]}" "${SetObjectReturn##*=>}" "${Target_ASSOCIATION[1]##*=>}" \
 									&& AttentionMessage "ERROR" "Endpoint association failed. Endpoint remains available." \
@@ -4778,7 +4753,7 @@ function CheckBearerToken() {
 		[[ ${#NFN_BEARER[0]} -lt 500 ]] \
 			&& GoToExit "3" "API Bearer Token from pass in was not correctly formatted." \
 			&& NFN_BEARER[0]="UNSET" \
-			|| AttentionMessage "GENERALINFO" "API Bearer Token was passed in for \"${APIConsole}\"."
+			|| AttentionMessage "GENERALINFO" "API Bearer Token was passed in for \"${APIMOP}\"."
 
 	fi
 
@@ -4903,10 +4878,10 @@ function ObtainSAFE() {
 		# Write into the file.
 		AttentionMessage "GREENINFO" "Saving information to the SAFE."
 		sleep 3
-		mkdir -p ${SAFEDir} &>/dev/null \
+		mkdir -p "${SAFEDir}" &>/dev/null \
 			&& export GPG_TTY="$(tty)" \
 			&& echo -e "ThisClientID=${ThisClientID}\nThisClientSecret=${ThisClientSecret}\nThisAuthURL=${ThisAuthURL}" | gpg -q --yes -c -o "${SAFEFile}" 2>/dev/null \
-			&& chmod -R 700 ${SAFEDir} &>/dev/null \
+			&& chmod -R 700 "${SAFEDir}" &>/dev/null \
 			&& (AttentionMessage "GREENINFO" "Successfully created the API SAFE \"${SAFEFile}\"." \
 				&& return 0) \
 			|| (AttentionMessage "REDINFO" "Failed to create the API SAFE \"${SAFEFile}\". Ensure the directory is accessible and permissioned correctly." \
@@ -4922,7 +4897,7 @@ function ObtainSAFE() {
 			AttentionMessage "GENERALINFO" "The API SAFE \"${SAFEFile}\" was found and correctly permissioned."
 			while read -r EachLine; do
 				export ${EachLine}
-			done < <(bash -c "export GPG_TTY="$(tty)" && gpg -dqo- ${SAFEFile} 2>/dev/null")
+			done < <(bash -c "export GPG_TTY=$(tty) && gpg -dqo- ${SAFEFile} 2>/dev/null")
 			# Semi-Validate the variables are actually populated correctly.
 			if [[ -n ${ThisClientID} ]] && [[ -n ${ThisClientSecret} ]]; then
 				if [[ -n ${ThisAuthURL} ]]; then
@@ -4953,7 +4928,7 @@ function ObtainSAFE() {
 		AttentionMessage "WARNING" "You are about to delete SAFE named \"${SAFEFile##*\/}\"."
 		! GetYorN "Proceed?" "No" \
 			&& return 0
-		rm -f ${SAFEFile} &>/dev/null \
+		rm -f "${SAFEFile}" &>/dev/null \
 			&& (AttentionMessage "VALIDATED" "Successfully deleted SAFE named \"${SAFEFile##*\/}\"." \
 				&& return 0) \
 			|| (AttentionMessage "ERROR" "Failed to delete SAFE named \"${SAFEFile##*\/}\"." \
@@ -4994,7 +4969,7 @@ function ObtainSAFE() {
 
 				"List SAFEs")
 					AttentionMessage "GREENINFO" "The following SAFEs are encrypted and stored at \"${SAFEDir}\"."
-					ls -ltr ${SAFEDir}/*.${SAFEPostExt}.${SAFEEncryption} 2>/dev/null
+					ls -ltr "${SAFEDir}/*.${SAFEPostExt}.${SAFEEncryption}" 2>/dev/null
 				;;
 
 				"Create SAFE")
@@ -5006,7 +4981,7 @@ function ObtainSAFE() {
 							&& break
 						SAFEName="${UserResponse}"
 						SAFEFile="${SAFEDir}/${SAFEName}.${SAFEPostExt}.${SAFEEncryption}"
-						find ${SAFEFile} &>/dev/null \
+						find "${SAFEFile}" &>/dev/null \
 							&& AttentionMessage "WARNING" "A SAFE with the name \"${SAFEFile##*\/}\" already exists, proceeding will overwrite it." \
 							&& ! GetYorN "Proceed?" "No" \
 								&& continue
@@ -5281,7 +5256,7 @@ function GeneralHelp() {
 	echo "${MyName[0]} -b        ::: Bulk Endpoint Creation Sub-Usage and Help Menu."
 	echo "${MyName[0]} -D        ::: Enable Debug Messages."
 	echo "${MyName[0]} -q        ::: Quiet(er) Printing Mode."
-	echo "${MyName[0]} -C [????] ::: Point API Access towards [production/staging]. [default=production]"
+	echo "${MyName[0]} -M [????] ::: Point API Access towards [production/staging]. [default=production]"
 	echo
 }
 
@@ -5312,7 +5287,7 @@ function LaunchMAIN() {
 		&& SetLimitFancy "WSL"
 
 	# Get options from command line.
-	while getopts "HhNXSs:Ppt:TIB:bDqC:" ThisOpt 2>/dev/null; do
+	while getopts "HhNXSs:Ppt:TIB:bDqM:" ThisOpt 2>/dev/null; do
 		case ${ThisOpt} in
 			"H"|"h")
 				SetLimitFancy "TRUE"
@@ -5374,8 +5349,8 @@ function LaunchMAIN() {
 			"q")
 				QuietPrint="TRUE"
 			;;
-			"C")
-				APIConsole="${OPTARG}"
+			"M")
+				APIMOP="${OPTARG}"
 			;;
 			*)
 				AttentionMessage "ERROR" "Invalid Options."
@@ -5385,8 +5360,6 @@ function LaunchMAIN() {
 			;;
 		esac
 	done
-
-	SetupConsoleAccess "${APIConsole}" # Setup variables for the appropriate Console.
 
 	# General usage of the program.
 	if [[ ${ThisMode} == "INTERACTIVE" ]]; then
@@ -5413,6 +5386,9 @@ function LaunchMAIN() {
 	else
 		ObtainSAFE "${SAFEFile}"
 	fi
+
+	# Setup variables for the appropriate MOP.	
+	SetupMOPAccess "${APIMOP}" 
 
 	# Check the access token.
 	CheckBearerToken
