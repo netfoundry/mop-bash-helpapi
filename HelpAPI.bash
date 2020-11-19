@@ -4481,7 +4481,7 @@ function BulkCreateEndpoints() {
 	# Analysis.
 	TimeCapture[1]="$(date +%s)"
 	TimeCapture[2]="$((TimeCapture[1]-TimeCapture[0]))"
-	echo " ┏BULK ENDPOINT CREATION START AT $(date -d @TimeCapture[0])"
+	echo " ┏BULK ENDPOINT CREATION START AT $(date -d @${TimeCapture[0]})"
 	echo " ┣━TOTAL LINES:       ${OutputCounterComplete[0]}"
 	echo " ┣━━LINES COUNTED:    ${OutputCounterComplete[1]}"
 	if [[ $((OutputCounter[1])) -ge 1 ]]; then
