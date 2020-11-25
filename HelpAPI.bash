@@ -912,7 +912,7 @@ function FancyPrint() {
 		else
 
 			for ((i=0;i<${#ThisLogoA[*]};i++)); do
-				echo -n "$(TypeIt ${ThisLogoB[${i}]##*:::} "${ThisSpeedFactor}" "${ThisColor}")"
+				echo -n "$(TypeIt "${ThisLogoB[${i}]##*:::}" "${ThisSpeedFactor}" "${ThisColor}")"
 				echo
 			done
 
@@ -3242,11 +3242,10 @@ function SetObjects() {
 			# 2/APPWANNAME
 			DATASyntax="--data '{\"name\":\""${2}"\"}'"
 			if ProcessResponse "${POSTSyntax} ${DATASyntax}" "${APIRESTURL}/networks/${Target_NETWORK[0]}/appWans" "202"; then
-				SetObjectReturn=( \
-					$(echo ${OutputJSON} | jq -r '
+				read -d '' -ra SetObjectReturn < <( \
+					jq -r '
 						(select(.name != null) .name + "=>" + (._links.self.href | split("/"))[-1])
-						' 2>&1
-					)
+					' <<< "${OutputJSON}" 2>&1
 				)
 				return 0
 			else
@@ -4311,7 +4310,7 @@ function BulkCreateEndpoints() {
 		&& return 1
 
 	# Ensure the output file can be written to.
-	! touch ${OutputFile} \
+	! touch "${OutputFile}" \
 		&& AttentionMessage "ERROR" "Could not create \"./${OutputFile}\" - Check your user permissions for the working directory." \
 		&& return 1 \
 		|| echo "# EPOCH,ENDPOINT_NAME,ENDPOINT_TYPE,NETWORK_UUID,GEOREGION_UUID,ENDPOINTGROUPS_STATE,APPWANS_STATE,ENDPOINT_UUID,REGISTRATION_KEY,EMAIL_STATE" > ${OutputFile}
@@ -4794,7 +4793,7 @@ function CheckBearerToken() {
 		&& AttentionMessage "GENERALINFO" "Scrambling and releasing the ClientID." \
 		&& ThisClientID="${RANDOM}${RANDOM}" \
 		&& unset ThisClientID
-	[[ -n ${ThisClientID} ]] \
+	[[ -n ${ThisClientSecret} ]] \
 		&& AttentionMessage "GENERALINFO" "Scrambling and releasing the ClientSecret." \
 		&& ThisClientSecret="${RANDOM}${RANDOM}" \
 		&& unset ThisClientSecret
