@@ -1319,7 +1319,7 @@ function GetObjects_V7C() {
 			&& InputSelectionBank="${InputSelection}"
 
 		# Get the raw JSON output.
-		if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/${InputType}/${InputSelection##*=>}" "200"; then
+		if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/${InputType}/${InputSelection##*=>}${METAOptions}" "200"; then
 
 			OutputJSONBank="${OutputJSON}" # Save the raw JSON output into the localized variable.
 
@@ -1373,9 +1373,9 @@ function GetObjects_V7C() {
 		ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/${InputURL}" "200"
 	}
 
-	# 1/TYPE 2/[LISTMODE & URLTRAIL] 3/EXPLICITUUID
+	# 1/TYPE 2/[LISTMODE & URLTRAIL] 3/EXPLICITID
 	local ListType ListMode URLTrail
-	local i j
+	local i j METAOptions="?limit=5000"
 	local OutputResponse OutputHeaders OutputJSON
 	ListType="${1}"
 	ListMode="${2}" # Options: BLANK=DEFAULTURL, URL=SPECIFICURL, FOLLOW-XYZ=LOOPWITHXYZTYPE, DERIVEDETAIL=OUTPUTSPECIFICJSON
@@ -1463,7 +1463,7 @@ function GetObjects_V7C() {
 		;;
 
 		"ENDPOINTS"|"DERIVE-ENDPOINT")
-			if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/identities?limit=5000" "200"; then
+			if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/identities${METAOptions}" "200"; then
 				PrintHelper "BOXHEADLINEA" "ITEM #" "NORMAL:::TYPE/CLASS/INDICATOR" "DESCRIPTION=>ID" >&2
 
 				# Gather all objects which match one of the following in order of check A) FilterString=OnlyIfFollowed B) PrimaryFilterString=OnlyFirstList
@@ -1561,9 +1561,9 @@ function GetObjects_V7C() {
 							"FOLLOW-ASERVICES")
 								PrintHelper "BOXITEMASUBLINEA"
 
-								if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/identities/${Target_ENDPOINT[1]}/service-policies" "200"; then
+								if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/identities/${Target_ENDPOINT[1]}/service-policies${METAOptions}" "200"; then
 
-									read -d '' -ra AllServices < <( \
+									read -d '' -ra AllServicePolicies < <( \
 										jq -r '
 											[(
 												select(.data != null)
@@ -1573,12 +1573,12 @@ function GetObjects_V7C() {
 											| sort_by(.name)[]
 											| (
 												.name
-												| sub("_BindPolicy";"")
 											) + "=>" + .id
 										' <<< "${OutputJSON}"
 									)
 
-									if [[ ${#AllServices[*]} -eq 0 ]]; then
+									if [[ ${#AllServicePolicies[*]} -eq 0 ]]; then
+
 										if [[ $((i+1)) -ne ${#AllEndpoints[*]} ]]; then
 											ClearLines "1"
 											PrintHelper "BOXMIDLINEB"
@@ -1588,14 +1588,48 @@ function GetObjects_V7C() {
 											return 0
 										fi
 										continue									
+									
 									else
-										for ((j=0;j<${#AllServices[*]};j++)); do
-											if [[ $((j+1)) -ne ${#AllServices[*]} ]]; then
-												PrintHelper "BOXITEMASUB" "SRV$(printf "%04d" "$((j+1))")" "NORMAL:::SERVICE" "┣━${AllServices[${j}]}"
-											else
-												PrintHelper "BOXITEMASUB" "SRV$(printf "%04d" "$((j+1))")" "NORMAL:::SERVICE" "┗━${AllServices[${j}]}"
+									
+										for ((j=0;j<${#AllServicePolicies[*]};j++)); do
+
+											Target_SERVICEPOLICY[0]=${AllServicePolicies[${j}]%%=>*} # NAME 
+											Target_SERVICEPOLICY[1]=${AllServicePolicies[${j}]##*=>} # POLICY ID
+
+											if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/service-policies/${Target_SERVICEPOLICY[1]}/services${METAOptions}" "200"; then
+
+												read -d '' -ra AllServices < <( \
+													jq -r '
+														[(
+															select(.data != null)
+															| .data[]
+														)]
+														| sort_by(.name)[]
+														| (
+															.name
+														) + "=>" + .id
+													' <<< "${OutputJSON}"
+												)
+
+												PrintHelper "BOXITEMASUB" "SPL$(printf "%04d" "$((j+1))")" "NORMAL:::SERVICEPOLICY" "┏${AllServicePolicies[${j}]}"
+
+												for ((k=0;k<${#AllServices[*]};k++)); do
+
+													Target_SERVICE[0]=${AllServices[${j}]%%=>*} # NAME
+													Target_SERVICE[1]=${AllServices[${j}]##*=>} # POLICY ID
+
+													if [[ $((k+1)) -ne ${#AllServices[*]} ]]; then
+														PrintHelper "BOXITEMASUB" "SRV$(printf "%04d" "$((k+1))")" "NORMAL:::SERVICE" "┣━${AllServices[${k}]}"
+													else
+														PrintHelper "BOXITEMASUB" "SRV$(printf "%04d" "$((k+1))")" "NORMAL:::SERVICE" "┗━${AllServices[${k}]}"
+													fi
+
+												done
+											
 											fi
+									
 										done
+
 									fi
 
 								fi
@@ -1646,15 +1680,14 @@ function GetObjects_V7C() {
 			return 1
 		;;
 
-		"ROUTERS"|"DERIVE-ROUTERS")
-			return 0
-			if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/identities?limit=5000" "200"; then
+		"EDGEROUTERS"|"DERIVE-EDGEROUTERS")
+			if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/edge-routers${METAOptions}" "200"; then
 				PrintHelper "BOXHEADLINEA" "ITEM #" "NORMAL:::TYPE/CLASS/INDICATOR" "DESCRIPTION=>ID" >&2
 
 				# Gather all objects which match one of the following in order of check A) FilterString=OnlyIfFollowed B) PrimaryFilterString=OnlyFirstList
 				#  STATUS = ACTIVE or INACTIVE
 				#  STATE  = ONLINE or OFFLINE
-				read -d '' -ra AllEndpoints < <( \
+				read -d '' -ra AllEdgeRouters < <( \
 					jq -r '
 						(
 							select(.data != null)
@@ -1662,108 +1695,62 @@ function GetObjects_V7C() {
 							| sort_by(.name)
 							| .[]
 						)
-						| select(.type.name == "Device")
-						| if (.hasApiSession) then
-								.hasApiSession = "ONLINE"
+						| if (.isOnline) then
+								.isOnline = "ONLINE"
 							else
-								.hasApiSession = "OFFLINE"
+								.isOnline = "OFFLINE"
 							end
-						| if (.hasEdgeRouterConnection) then
-								.hasEdgeRouterConnection = "ACTIVE"
+						| if (.isVerified) then
+								.isVerified = "VERFIED"
 							else
-								.hasEdgeRouterConnection = "INACTIVE"
+								.isVerified = "UNVERFIED"
 							end
-						| .hasApiSession + ":::" + .hasEdgeRouterConnection + ":::" + .name + "=>" + (._links.self.href | split("/"))[-1]
+						| .isOnline + ":::" + .isVerified + ":::" + .name + ":::" + .hostname + "=>" +.id
 					' <<< "${OutputJSON}" \
 					| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}"
 				)
 
 				# No reason to continue if there are no objects to analyze.
-				if [[ ${#AllEndpoints[*]} -eq 0 ]]; then
+				if [[ ${#AllEdgeRouters[*]} -eq 0 ]]; then
 
-					PrintHelper "BOXITEMA" "EPT...." "WARNING:::WARNING" "No Endpoints found." >&2
+					PrintHelper "BOXITEMA" "EPT...." "WARNING:::WARNING" "No EdgeRouters found." >&2
 					PrintHelper "BOXFOOTLINEA" >&2
 					return 1
 
 				elif [[ ${ListMode} =~ "FOLLOW" ]]; then
 
-					FilterString='.' # Set the filter to grab everything in subsequent ListObject calls.
-					for ((i=0;i<${#AllEndpoints[*]};i++)); do
-
-						Target_ENDPOINT[0]=${AllEndpoints[${i}]%%=>*}
-						Target_ENDPOINT[1]=${AllEndpoints[${i}]##*=>}
-
-						PrintHelper "BOXITEMA" "EPT$(printf "%04d" "$((i+1))")" "${AllEndpoints[${i}]%:::*}_ENDPOINT" "${AllEndpoints[${i}]##*:::}"
-
-						case ${ListMode} in
-							"FOLLOW-APPWANS")
-								:
-							;;
-
-							"FOLLOW-PSERVICES")
-								:
-							;;
-
-							"FOLLOW-ASERVICES")
-								PrintHelper "BOXITEMASUBLINEA"
-
-								if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/identities/${Target_ENDPOINT[1]}/service-policies" "200"; then
-
-									read -d '' -ra AllServices < <( \
-										jq -r '
-											(
-												select(.data != null)
-												| .data
-												| sort_by(.name)
-												| .[]
-											)
-											| .name + "=>" + .id
-										' <<< "${OutputJSON}"
-									)
-
-									for ((j=0;j<${#AllServices[*]};j++)); do
-										if [[ $((j+1)) -ne ${#AllServices[*]} ]]; then
-											PrintHelper "BOXITEMASUB" "SRV$(printf "%04d" "$((j+1))")" "NORMAL:::SERVICE" "┣━${AllServices[${j}]}"
-										else
-											PrintHelper "BOXITEMASUB" "SRV$(printf "%04d" "$((j+1))")" "NORMAL:::SERVICE" "┗━${AllServices[${j}]}"
-										fi
-									done
-
-								else
-
-									PrintHelper "BOXITEMASUB" "SRV...." "NORMAL:::" "No Service (Accessible-By) associations were found."
-
-								fi
-							;;
-
-						esac
-
-						[[ $((i+1)) -eq ${#AllEndpoints[*]} ]] \
-							|| PrintHelper "BOXMIDLINEA" >&2
-
-					done
-
-					PrintHelper "BOXFOOTLINEB" >&2
+					:
 
 				else
 
-					if [[ ${ListType} == "DERIVE-ENDPOINT" ]]; then
+					if [[ ${ListType} == "DERIVE-EDGEROUTERS" ]]; then
 
-						DeriveDetail "${AllEndpoints[*]}" "identities"
+						DeriveDetail "${AllEdgeRouters[*]}" "edge-routers"
 
 					else
 
-						for ((i=0;i<${#AllEndpoints[*]};i++)); do
+						for ((i=0;i<${#AllEdgeRouters[*]};i++)); do
+
+							Target_EDGEROUTER[0]="${AllEdgeRouters[${i}]%%=>*}" # ONLINESTATUS:::VERIFIEDSTATUS:::NAME:::HOSTNAME:PORT
+							Target_EDGEROUTER[1]=${AllEdgeRouters[${i}]##*=>} # POLICY ID
+							Target_EDGEROUTER[2]="${Target_EDGEROUTER[0]%:::*}" # ONLINESTATUS:::VERIFIEDSTATUS:::NAME
+							Target_EDGEROUTER[3]="${Target_EDGEROUTER[2]%:::*}" # ONLINESTATUS:::VERIFIEDSTATUS
+							Target_EDGEROUTER[4]="${Target_EDGEROUTER[2]%:::*}" # ONLINESTATUS
+							Target_EDGEROUTER[5]="${Target_EDGEROUTER[2]##*:::}" # NAME
+							Target_EDGEROUTER[6]="${Target_EDGEROUTER[3]##*:::}" # VERIFIEDSTATUS
+							Target_EDGEROUTER[7]="${Target_EDGEROUTER[0]##*:::}" # HOSTNAME:PORT
+							Target_EDGEROUTER[8]="${Target_EDGEROUTER[7]%%:*}" # HOSTNAME
+							Target_EDGEROUTER[9]="${Target_EDGEROUTER[7]##*:}" # PORT
 
 							# URLTrail specification indicates this is a secondary GetObjects_V7C call which links to a parent/header.
 							if [[ ${URLTrail} ]]; then
-								if [[ $((i+1)) -ne ${#AllEndpoints[*]} ]]; then
-									PrintHelper "BOXITEMASUB" "EPT$(printf "%04d" "$((i+1))")" "${AllEndpoints[${i}]%:::*}_ENDPOINT" "┣━${AllEndpoints[${i}]##*:::}"
+								if [[ $((i+1)) -ne ${#AllEdgeRouters[*]} ]]; then
+									PrintHelper "BOXITEMASUB" "ERT$(printf "%04d" "$((i+1))")" "${Target_EDGEROUTER[3]}_EDGEROUTER" "┣━$(printf "%-42.42s %15.15s:%-4.4s" "${Target_EDGEROUTER[5]}" "${Target_EDGEROUTER[8]}" "${Target_EDGEROUTER[9]}")=>${Target_EDGEROUTER[1]}"
 								else
-									PrintHelper "BOXITEMASUB" "EPT$(printf "%04d" "$((i+1))")" "${AllEndpoints[${i}]%:::*}_ENDPOINT" "┗━${AllEndpoints[${i}]##*:::}"
+									PrintHelper "BOXITEMASUB" "ERT$(printf "%04d" "$((i+1))")" "${Target_EDGEROUTER[3]}_EDGEROUTER" "┗━$(printf "%-42.42s %15.15s:%-4.4s" "${Target_EDGEROUTER[5]}" "${Target_EDGEROUTER[8]}" "${Target_EDGEROUTER[9]}")=>${Target_EDGEROUTER[1]}"
 								fi
 							else
-								PrintHelper "BOXITEMA" "EPT$(printf "%04d" "$((i+1))")" "${AllEndpoints[${i}]%:::*}_ENDPOINT" "${AllEndpoints[${i}]##*:::}"
+								PrintHelper "BOXITEMA" "ERT$(printf "%04d" "$((i+1))")" "${Target_EDGEROUTER[3]}_EDGEROUTER" "$(printf "%-42.42s %15.15s:%-4.4s" "${Target_EDGEROUTER[5]}" "${Target_EDGEROUTER[8]}" "${Target_EDGEROUTER[9]}")=>${Target_EDGEROUTER[1]}"
 							fi
 
 						done
@@ -1782,7 +1769,7 @@ function GetObjects_V7C() {
 		;;
 
 		"SERVICES"|"DERIVE-SERVICE")
-			if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/services?limit=5000" "200"; then
+			if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/services${METAOptions}" "200"; then
 				PrintHelper "BOXHEADLINEA" "ITEM #" "NORMAL:::TYPE/CLASS/INDICATOR" "DESCRIPTION=>ID" >&2
 
 				# Gather all objects which match one of the following in order of check A) FilterString=OnlyIfFollowed B) PrimaryFilterString=OnlyFirstList
@@ -2298,16 +2285,24 @@ function GetObjects_MOP() {
 							"FOLLOW-PSERVICES")
 								# Clients do not provide services and were auto-filtered prior to this switch.
 								PrintHelper "BOXITEMASUBLINEA"
-								! GetObjects_MOP "SERVICES" "endpoints/${Target_ENDPOINT[1]}/services" 2>/dev/null \
-									&& PrintHelper "BOXITEMASUB" "SRV...." "NORMAL:::" "No Service (Hosted-By) associations were found."
+								if ! GetObjects_MOP "SERVICES" "endpoints/${Target_ENDPOINT[1]}/services" 2>/dev/null; then
+									if [[ ${#AllServices[*]} -eq 0 ]]; then
+										ClearLines "1"
+										PrintHelper "BOXMIDLINEB"
+									else
+										ClearLines "1"
+										PrintHelper "BOXFOOTLINEA"
+										return 0
+									fi
+									continue
+								fi								
 							;;
 
 							"FOLLOW-ASERVICES")
 								PrintHelper "BOXITEMASUBLINEA"
 								(
 									# Run in a subshell to prevent the global variables from being changed.
-									! GetObjects_MOP "APPWANS" "FOLLOW-ASERVICES" "${Target_ENDPOINT[1]}" 2>/dev/null \
-										&& PrintHelper "BOXITEMASUB" "SRV...." "NORMAL:::" "No Service (Accessible-By) associations were found."
+									GetObjects_MOP "APPWANS" "FOLLOW-ASERVICES" "${Target_ENDPOINT[1]}" 2>/dev/null
 								)
 							;;
 
@@ -6242,8 +6237,8 @@ function LaunchMAIN() {
 	V7_AllListOptions=( \
 		"List Endpoints (D2C)"
 		#"List Endpoints"
-		#"List Routers (D2C)"
-		#"List Routers"
+		"List EdgeRouters (D2C)"
+		#"List EdgeRouters"
 		#"List Services (D2C)"
 		#"List Services"
 	)
@@ -6273,7 +6268,7 @@ function LaunchMAIN() {
 	V6_FollowEndpoint=( \
 		"EndpointGroups"
 		"AppWANs"
-		"Services (Hosted-By)"
+		"Services (Provided-By)"
 		"Services (Accessible-By)"
 		"All"
 		"No Associations - Simple List"
@@ -6281,11 +6276,11 @@ function LaunchMAIN() {
 	)
 	V7_FollowEndpoint=( \
 		"Services (Provided-By)"
-		#"Services (Accessible-By)"
+		"Services (Accessible-By)"
 		"No Associations - Simple List"
 		"No Associations - Derive Detail"
 	)
-	V7_FollowRouter=( \
+	V7_FollowEdgeRouter=( \
 		"No Associations - Simple List"
 		"No Associations - Derive Detail"
 	)
@@ -6402,41 +6397,41 @@ function LaunchMAIN() {
 								done
 							;;
 
-							"List Routers (D2C)")
+							"List EdgeRouters (D2C)")
 								while true; do
-									CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/ListingD2C/Routers/AndFollow"
-									! GetSelection "Select Router associations to follow." "${V7_FollowRouter[*]}" "NONE" \
+									CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/ListingD2C/EdgeRouters/AndFollow"
+									! GetSelection "Select EdgeRouter associations to follow." "${V7_FollowEdgeRouter[*]}" "NONE" \
 										&& break
 									case "${UserResponse}" in
 										"No Associations - Simple List")
 											! GetFilterString \
 												&& continue
-											AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Routers in Network \"${Target_NETWORK[1]}\"."
-											GetObjects_V7C "ROUTERS"
+											AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of EdgeRouters in Network \"${Target_NETWORK[1]}\"."
+											GetObjects_V7C "EDGEROUTERS"
 										;;
 										"No Associations - Derive Detail")
-											CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/ListingD2C/Routers/DeriveDetail"
+											CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/ListingD2C/EdgeRouters/DeriveDetail"
 											! GetFilterString \
 												&& continue
-											AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Routers in Network \"${Target_NETWORK[1]}\"."
-											GetObjects_V7C "DERIVE-ROUTER" 2>/dev/null
+											AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of EdgeRouters in Network \"${Target_NETWORK[1]}\"."
+											GetObjects_V7C "DERIVE-EDGEROUTERS" 2>/dev/null
 										;;
 									esac
 								done
 							;;
 
-							"List Routers")
+							"List EdgeRouters")
 								AttentionMessage "YELLOWINFO" "Function not yet implemented." && continue
 								while true; do
-									CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/Listing/Routers/AndFollow"
-									! GetSelection "Select Router associations to follow." "${V7_FollowRouter[*]}" "NONE" \
+									CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/Listing/EdgeRouters/AndFollow"
+									! GetSelection "Select EdgeRouter associations to follow." "${V7_FollowEdgeRouter[*]}" "NONE" \
 										&& break
 									case "${UserResponse}" in
 										"No Asociations - Simple List")
 											:
 										;;
 										"No Associations - Derive Detail")
-											CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/ListingD2C/Routers/DeriveDetail"
+											CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/ListingD2C/EdgeRouters/DeriveDetail"
 											:
 										;;
 									esac
@@ -6521,11 +6516,11 @@ function LaunchMAIN() {
 											AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Endpoints and associated AppWANs in Network \"${Target_NETWORK[1]}\"."
 											GetObjects_MOP "ENDPOINTS" "FOLLOW-APPWANS"
 										;;
-										"Services (Hosted-By)")
+										"Services (Provided-By)")
 											AttentionMessage "GENERALINFO" "Be aware, only Gateway Endpoints provide Services."
 											! GetFilterString \
 												&& continue
-											AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Gateway Endpoints and associated Services (Hosted-By) in Network \"${Target_NETWORK[1]}\"."
+											AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Gateway Endpoints and associated Services (Provided-By) in Network \"${Target_NETWORK[1]}\"."
 											GetObjects_MOP "ENDPOINTS" "FOLLOW-PSERVICES"
 										;;
 										"Services (Accessible-By)")
