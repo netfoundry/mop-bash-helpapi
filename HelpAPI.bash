@@ -289,7 +289,7 @@ function ClearLines() {
 		# Use the builtin.
 		clear
 
-	elif [[ ${ClearLines} =~ ${NumberRE} ]]; then
+	elif [[ ${TeachMode} == "FALSE" ]] && [[ ${ClearLines} =~ ${NumberRE} ]]; then
 
 		# For each line going up to clear, do this.
 		for ((i=1;i<=ClearLines;i++)); do
@@ -526,7 +526,7 @@ function PrintHelper() {
 			"ERR")
 				echo "PUSH${Bold};${FRed}"
 			;;
-			"PROVISIONING"|"NRG")
+			"PROVISIONING"|"NRG"|"UNREGISTERED")
 				echo "PUSH${FDarkGray}"
 			;;
 			"STATUS")
@@ -1488,7 +1488,15 @@ function GetObjects_V7C() {
 							else
 								.hasEdgeRouterConnection = "INACTIVE"
 							end
-						| .hasApiSession + ":::" + .hasEdgeRouterConnection + ":::" + .name + "=>" + (._links.self.href | split("/"))[-1]
+						| if (.enrollment.ott != null) then
+								"UNREGISTERED:::" + (
+									(
+										(.enrollment.ott.expiresAt | split(".")[0] | strptime("%Y-%m-%dT%H:%M:%S") | mktime) - (now)
+									) | tostring | split(".")[0]
+								) + ":::" + .name + "=>" + (._links.self.href | split("/"))[-1]
+							else
+								.hasApiSession + ":::" + .hasEdgeRouterConnection + ":::" + .name + "=>" + (._links.self.href | split("/"))[-1]
+							end
 					' <<< "${OutputJSON}" \
 					| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}"
 				)
@@ -1505,10 +1513,21 @@ function GetObjects_V7C() {
 					FilterString='.' # Set the filter to grab everything in subsequent ListObject calls.
 					for ((i=0;i<${#AllEndpoints[*]};i++)); do
 
-						Target_ENDPOINT[0]=${AllEndpoints[${i}]%%=>*}
-						Target_ENDPOINT[1]=${AllEndpoints[${i}]##*=>}
+						# 0/REGSTATE|APISESSION 1/REGEXPIREDATE|ROUTERCONNECTION 2/NAME 3/POLICYID
+						unset Target_ENDPOINT[{0..3}]
+						Target_ENDPOINT[0]="${AllEndpoints[${i}]}"
+						Target_ENDPOINT[0]="${Target_ENDPOINT[0]/=>${Target_ENDPOINT[3]:=${Target_ENDPOINT[0]##*=>}}/}"
+						Target_ENDPOINT[0]="${Target_ENDPOINT[0]/:::${Target_ENDPOINT[2]:=${Target_ENDPOINT[0]##*:::}}/}"
+						Target_ENDPOINT[0]="${Target_ENDPOINT[0]/:::${Target_ENDPOINT[1]:=${Target_ENDPOINT[0]##*:::}}/}"
+						Target_ENDPOINT[0]="${Target_ENDPOINT[0]/:::${Target_ENDPOINT[0]:=${Target_ENDPOINT[0]##*:::}}/}"
 
-						PrintHelper "BOXITEMA" "EPT$(printf "%04d" "$((i+1))")" "${AllEndpoints[${i}]%:::*}_ENDPOINT" "${AllEndpoints[${i}]##*:::}"
+						if [[ ${Target_ENDPOINT[0]} == "UNREGISTERED" ]]; then
+							[[ ${Target_ENDPOINT[1]} -lt 0 ]] \
+								&& Target_ENDPOINT[1]="EXPIRED" \
+								|| Target_ENDPOINT[1]="UNREGISTERED"
+						fi						
+
+						PrintHelper "BOXITEMA" "EPT$(printf "%04d" "$((i+1))")" "${Target_ENDPOINT[0]}:::${Target_ENDPOINT[1]}_ENDPOINT" "${Target_ENDPOINT[2]}=>${Target_ENDPOINT[3]}"
 
 						case ${ListMode} in
 							"FOLLOW-APPWANS")
@@ -1518,7 +1537,7 @@ function GetObjects_V7C() {
 							"FOLLOW-PSERVICES")
 								PrintHelper "BOXITEMASUBLINEA"
 
-								if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/identities/${Target_ENDPOINT[1]}/service-policies" "200"; then
+								if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/identities/${Target_ENDPOINT[3]}/service-policies" "200"; then
 
 									read -d '' -ra AllServices < <( \
 										jq -r '
@@ -1544,7 +1563,7 @@ function GetObjects_V7C() {
 											PrintHelper "BOXFOOTLINEA"
 											return 0
 										fi
-										continue									
+										continue
 									else
 										for ((j=0;j<${#AllServices[*]};j++)); do
 											if [[ $((j+1)) -ne ${#AllServices[*]} ]]; then
@@ -1561,7 +1580,7 @@ function GetObjects_V7C() {
 							"FOLLOW-ASERVICES")
 								PrintHelper "BOXITEMASUBLINEA"
 
-								if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/identities/${Target_ENDPOINT[1]}/service-policies${METAOptions}" "200"; then
+								if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/identities/${Target_ENDPOINT[3]}/service-policies${METAOptions}" "200"; then
 
 									read -d '' -ra AllServicePolicies < <( \
 										jq -r '
@@ -1587,13 +1606,13 @@ function GetObjects_V7C() {
 											PrintHelper "BOXFOOTLINEA"
 											return 0
 										fi
-										continue									
-									
+										continue
+
 									else
-									
+
 										for ((j=0;j<${#AllServicePolicies[*]};j++)); do
 
-											Target_SERVICEPOLICY[0]=${AllServicePolicies[${j}]%%=>*} # NAME 
+											Target_SERVICEPOLICY[0]=${AllServicePolicies[${j}]%%=>*} # NAME
 											Target_SERVICEPOLICY[1]=${AllServicePolicies[${j}]##*=>} # POLICY ID
 
 											if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/service-policies/${Target_SERVICEPOLICY[1]}/services${METAOptions}" "200"; then
@@ -1625,9 +1644,9 @@ function GetObjects_V7C() {
 													fi
 
 												done
-											
+
 											fi
-									
+
 										done
 
 									fi
@@ -1654,15 +1673,29 @@ function GetObjects_V7C() {
 
 						for ((i=0;i<${#AllEndpoints[*]};i++)); do
 
+							# 0/REGSTATE|APISESSION 1/REGEXPIREDATE|ROUTERCONNECTION 2/NAME 3/POLICYID
+							unset Target_ENDPOINT[{0..3}]
+							Target_ENDPOINT[0]="${AllEndpoints[${i}]}"
+							Target_ENDPOINT[0]="${Target_ENDPOINT[0]/=>${Target_ENDPOINT[3]:=${Target_ENDPOINT[0]##*=>}}/}"
+							Target_ENDPOINT[0]="${Target_ENDPOINT[0]/:::${Target_ENDPOINT[2]:=${Target_ENDPOINT[0]##*:::}}/}"
+							Target_ENDPOINT[0]="${Target_ENDPOINT[0]/:::${Target_ENDPOINT[1]:=${Target_ENDPOINT[0]##*:::}}/}"
+							Target_ENDPOINT[0]="${Target_ENDPOINT[0]/:::${Target_ENDPOINT[0]:=${Target_ENDPOINT[0]##*:::}}/}"
+
+							if [[ ${Target_ENDPOINT[0]} == "UNREGISTERED" ]]; then
+								[[ ${Target_ENDPOINT[1]} -lt 0 ]] \
+									&& Target_ENDPOINT[1]="EXPIRED" \
+									|| Target_ENDPOINT[1]="UNREGISTERED"
+							fi
+
 							# URLTrail specification indicates this is a secondary GetObjects_V7C call which links to a parent/header.
 							if [[ ${URLTrail} ]]; then
 								if [[ $((i+1)) -ne ${#AllEndpoints[*]} ]]; then
-									PrintHelper "BOXITEMASUB" "EPT$(printf "%04d" "$((i+1))")" "${AllEndpoints[${i}]%:::*}_ENDPOINT" "┣━${AllEndpoints[${i}]##*:::}"
+									PrintHelper "BOXITEMASUB" "EPT$(printf "%04d" "$((i+1))")" "${Target_ENDPOINT[0]}:::${Target_ENDPOINT[1]}_ENDPOINT" "┣━${Target_ENDPOINT[2]}=>${Target_ENDPOINT[3]}"
 								else
-									PrintHelper "BOXITEMASUB" "EPT$(printf "%04d" "$((i+1))")" "${AllEndpoints[${i}]%:::*}_ENDPOINT" "┗━${AllEndpoints[${i}]##*:::}"
+									PrintHelper "BOXITEMASUB" "EPT$(printf "%04d" "$((i+1))")" "${Target_ENDPOINT[0]}:::${Target_ENDPOINT[1]}_ENDPOINT" "┗━${Target_ENDPOINT[2]}=>${Target_ENDPOINT[3]}"
 								fi
 							else
-								PrintHelper "BOXITEMA" "EPT$(printf "%04d" "$((i+1))")" "${AllEndpoints[${i}]%:::*}_ENDPOINT" "${AllEndpoints[${i}]##*:::}"
+								PrintHelper "BOXITEMA" "EPT$(printf "%04d" "$((i+1))")" "${Target_ENDPOINT[0]}:::${Target_ENDPOINT[1]}_ENDPOINT" "${Target_ENDPOINT[2]}=>${Target_ENDPOINT[3]}"
 							fi
 
 						done
@@ -1810,7 +1843,7 @@ function GetObjects_V7C() {
 						for ((i=0;i<${#AllServices[*]};i++)); do
 
 							Target_SERVICE[0]="${AllServices[${i}]%%=>*}" # NAME
-							Target_SERVICE[1]="${AllServices[${i}]##*=>}" # ID
+							Target_SERVICE[1]="${AllServices[${i}]##*=>}" # POLICY ID
 
 							# URLTrail specification indicates this is a secondary GetObjects_MOP call which links to a parent/header.
 							if [[ ${URLTrail} ]]; then
@@ -1821,6 +1854,104 @@ function GetObjects_V7C() {
 								fi
 							else
 								PrintHelper "BOXITEMA" "SRV$(printf "%04d" "$((i+1))")" "NORMAL:::SERVICE" "${Target_SERVICE[0]}=>${Target_SERVICE[1]}"
+							fi
+
+						done
+
+					fi
+
+					PrintHelper "BOXFOOTLINEA" >&2
+
+				fi
+
+				return 0
+
+			fi
+
+			return 1
+		;;
+
+
+		"ENROLLMENTS"|"DERIVE-ENROLLMENTS")
+			if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/enrollments${METAOptions}" "200"; then
+				PrintHelper "BOXHEADLINEA" "ITEM #" "NORMAL:::TIME LEFT" "DESCRIPTION=>ID" >&2
+
+				# Gather all objects which match one of the following in order of check A) FilterString=OnlyIfFollowed B) PrimaryFilterString=OnlyFirstList
+				#  STATUS = ACTIVE or INACTIVE
+				#  STATE  = ONLINE or OFFLINE
+				read -d '' -ra AllEnrollments < <( \
+					jq -r '
+						(
+							select(.data != null)
+							| .data
+							| group_by(.method)[]
+							| sort_by(.expiresAt)
+							| .[]
+						)|.edgeRouter.name? as $THISERTNAME
+						|.identity.name? as $THISEPTNAME
+						|(((.expiresAt | split(".")[0] | strptime("%Y-%m-%dT%H:%M:%S") | mktime) - (now))| tostring | split(".")[0]) as $THISEXPDATE
+						|((._links.self.href | split("/"))[-1]) as $THISPOLICYID
+						| if ($THISEPTNAME != null) then 
+							"[EPT] " + $THISEPTNAME + ":::" + $THISEXPDATE + "=>" + $THISPOLICYID
+						elif ($THISERTNAME != null) then 
+							"[ERT] " + $THISERTNAME + ":::" + $THISEXPDATE + "=>" + $THISPOLICYID
+						else
+							empty
+						end
+					' <<< "${OutputJSON}" \
+					| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}"
+				)
+
+				# No reason to continue if there are no objects to analyze.
+				if [[ ${#AllEnrollments[*]} -eq 0 ]]; then
+
+					PrintHelper "BOXITEMA" "ENR...." "NORMAL:::INFO" "No outstanding Enrollments found." >&2
+					PrintHelper "BOXFOOTLINEA" >&2
+					return 1
+
+				elif [[ ${ListMode} =~ "FOLLOW" ]]; then
+
+					:
+
+				else
+
+					if [[ ${ListType} == "DERIVE-ENROLLMENTS" ]]; then
+
+						DeriveDetail "${AllEnrollments[*]}" "enrollments"
+
+					else
+
+						for ((i=0;i<${#AllEnrollments[*]};i++)); do
+
+							# 0/NAME 1/EXPIREDATE 2/POLICYID
+							unset Target_ENROLLMENT[{0..7}]
+							Target_ENROLLMENT[0]="${AllEnrollments[${i}]}"
+							Target_ENROLLMENT[0]="${Target_ENROLLMENT[0]/=>${Target_ENROLLMENT[2]:=${Target_ENROLLMENT[0]##*=>}}/}"
+							Target_ENROLLMENT[0]="${Target_ENROLLMENT[0]/:::${Target_ENROLLMENT[1]:=${Target_ENROLLMENT[0]##*:::}}/}"
+							Target_ENROLLMENT[0]="${Target_ENROLLMENT[0]/:::${Target_ENROLLMENT[0]:=${Target_ENROLLMENT[0]##*:::}}/}"
+							Target_ENROLLMENT[3]="$((Target_ENROLLMENT[1]/86400))" # DAYS LEFT
+							Target_ENROLLMENT[4]="$((Target_ENROLLMENT[1]%24))" # HOURS LEFT
+							Target_ENROLLMENT[5]="$((Target_ENROLLMENT[1]%3600/60))" # MINUTES LEFT
+							Target_ENROLLMENT[6]="$((Target_ENROLLMENT[1]%60))" # SECONDS LEFT
+							Target_ENROLLMENT[7]="$(printf '%4sd %4sh %4sm %4ss' "${Target_ENROLLMENT[3]}" "${Target_ENROLLMENT[4]}" "${Target_ENROLLMENT[5]}" "${Target_ENROLLMENT[6]}")"
+
+							if [[ ${Target_ENROLLMENT[1]} -gt 43200 ]]; then
+								AlertStyle="NORMAL"
+							elif [[ ${Target_ENROLLMENT[1]} -le 43200 ]] && [[ ${Target_ENROLLMENT[1]} -gt 0 ]]; then
+								AlertStyle="WARNING"
+							else
+								AlertStyle="ALERT"
+							fi
+
+							# URLTrail specification indicates this is a secondary GetObjects_V7C call which links to a parent/header.
+							if [[ ${URLTrail} ]]; then
+								if [[ $((i+1)) -ne ${#AllEnrollments[*]} ]]; then
+									PrintHelper "BOXITEMASUB" "ENR$(printf "%04d" "$((i+1))")" "${AlertStyle}:::${Target_ENROLLMENT[7]}" "┣━${Target_ENROLLMENT[0]}=>${Target_ENROLLMENT[2]}"
+								else
+									PrintHelper "BOXITEMASUB" "ENR$(printf "%04d" "$((i+1))")" "${AlertStyle}:::${Target_ENROLLMENT[7]}" "┗━${Target_ENROLLMENT[0]}=>${Target_ENROLLMENT[2]}"
+								fi
+							else
+								PrintHelper "BOXITEMA" "ENR$(printf "%04d" "$((i+1))")" "${AlertStyle}:::${Target_ENROLLMENT[7]}" "${Target_ENROLLMENT[0]}=>${Target_ENROLLMENT[2]}"
 							fi
 
 						done
@@ -2295,7 +2426,7 @@ function GetObjects_MOP() {
 										return 0
 									fi
 									continue
-								fi								
+								fi
 							;;
 
 							"FOLLOW-ASERVICES")
@@ -6241,6 +6372,8 @@ function LaunchMAIN() {
 		#"List EdgeRouters"
 		#"List Services (D2C)"
 		#"List Services"
+		"List Enrollments (D2C)"
+		#"List Enrollments"
 	)
 	V6_AllMACDOptions=( \
 		"Modify AppWAN Associations"
@@ -6281,6 +6414,10 @@ function LaunchMAIN() {
 		"No Associations - Derive Detail"
 	)
 	V7_FollowEdgeRouter=( \
+		"No Associations - Simple List"
+		"No Associations - Derive Detail"
+	)
+	V7_FollowEnrollments=( \
 		"No Associations - Simple List"
 		"No Associations - Derive Detail"
 	)
@@ -6471,6 +6608,47 @@ function LaunchMAIN() {
 											:
 										;;
 										"No Associations - Derive Detail")
+											:
+										;;
+									esac
+								done
+							;;
+
+							"List Enrollments (D2C)")
+								while true; do
+									CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/ListingD2C/Enrollments/AndFollow"
+									! GetSelection "Select Enrollment associations to follow." "${V7_FollowEnrollments[*]}" "NONE" \
+										&& break
+									case "${UserResponse}" in
+										"No Associations - Simple List")
+											! GetFilterString \
+												&& continue
+											AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Enrollments in Network \"${Target_NETWORK[1]}\"."
+											GetObjects_V7C "ENROLLMENTS"
+										;;
+										"No Associations - Derive Detail")
+											CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/ListingD2C/Enrollments/DeriveDetail"
+											! GetFilterString \
+												&& continue
+											AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Enrollments in Network \"${Target_NETWORK[1]}\"."
+											GetObjects_V7C "DERIVE-ENROLLMENTS" 2>/dev/null
+										;;
+									esac
+								done
+							;;
+
+							"List Enrollments")
+								AttentionMessage "YELLOWINFO" "Function not yet implemented." && continue
+								while true; do
+									CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/Listing/Enrollments/AndFollow"
+									! GetSelection "Select Enrollment associations to follow." "${V7_FollowEnrollments[*]}" "NONE" \
+										&& break
+									case "${UserResponse}" in
+										"No Asociations - Simple List")
+											:
+										;;
+										"No Associations - Derive Detail")
+											CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/Listing/Enrollments/DeriveDetail"
 											:
 										;;
 									esac
