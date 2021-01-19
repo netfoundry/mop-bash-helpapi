@@ -1374,7 +1374,7 @@ function GetObjects_V7C() {
 	}
 
 	# 1/TYPE 2/[LISTMODE & URLTRAIL] 3/EXPLICITID
-	local ListType ListMode URLTrail
+	local ListType ListMode URLTrail AlertStyle
 	local i j METAOptions="?limit=5000"
 	local OutputResponse OutputHeaders OutputJSON
 	ListType="${1}"
@@ -1425,20 +1425,26 @@ function GetObjects_V7C() {
 
 
 							NetworkMetadata_V7C[0]="${NetworkAccess_V7C[0]}=>${NetworkSession_V7C}" # ControllerIP => ZT-Session-Token
-							if ProcessResponse "${INITGETSyntax_V7C}" "https://${NetworkAccess_V7C[0]}/.well-known/est/cacerts" "200"; then
-								NetworkMetadata_V7C[1]="$(openssl base64 -d <<<"${OutputJSON}" | openssl pkcs7 -inform DER -outform PEM -print_certs)" # The CA Certificate in PEM format.
+							if ProcessResponse "${INITGETSyntax_V7C}" "https://${NetworkAccess_V7C[0]}" "200"; then
+								read -d '' -r NetworkMetadata_V7C[1] < <( \
+									jq -r '
+										select(.data != null)
+										| .data.version
+									' <<< "${OutputJSON}"
+								)
 							else
-								NetworkMetadata_V7C[1]="CERTIFICATE RECEIPT FAILURE."
+								NetworkMetadata_V7C[1]="VERSION RECEIPT FAILURE."
+							fi
+							if ProcessResponse "${INITGETSyntax_V7C}" "https://${NetworkAccess_V7C[0]}/.well-known/est/cacerts" "200"; then
+								NetworkMetadata_V7C[2]="$(openssl base64 -d <<<"${OutputJSON}" | openssl pkcs7 -inform DER -outform PEM -print_certs)" # The CA Certificate in PEM format.
+							else
+								NetworkMetadata_V7C[2]="CERTIFICATE RECEIPT FAILURE."
 							fi
 
 							# New V7 calls.
-							#GETSyntax_V7C="curl -sSLim ${CURLMaxTime} -X GET -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Cookie: zt-session=${NetworkSession_V7C}\" --cacert <(printf \"${NetworkMetadata_V7C[1]}\")"
 							GETSyntax_V7C="curl -sSLkim ${CURLMaxTime} -X GET -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Cookie: zt-session=${NetworkSession_V7C}\""
-							#PUTSyntax_V7C="curl -sSLim ${CURLMaxTime} -X PUT -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Cookie: zt-session=${NetworkSession_V7C}\" --cacert <(printf \"${NetworkMetadata_V7C[1]}\")"
 							PUTSyntax_V7C="curl -sSLkim ${CURLMaxTime} -X PUT -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Cookie: zt-session=${NetworkSession_V7C}\""
-							#POSTSyntax_V7C="curl -sSLim ${CURLMaxTime} -X POST -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Cookie: zt-session=${NetworkSession_V7C}\" --cacert <(printf \"${NetworkMetadata_V7C[1]}\")"
 							POSTSyntax_V7C="curl -sSLkim ${CURLMaxTime} -X POST -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Cookie: zt-session=${NetworkSession_V7C}\""
-							#DELETESyntax_V7C="curl -sSLim ${CURLMaxTime} -X DELETE -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Cookie: zt-session=${NetworkSession_V7C}\" --cacert <(printf \"${NetworkMetadata_V7C[1]}\")"
 							DELETESyntax_V7C="curl -sSLkim ${CURLMaxTime} -X DELETE -H \"content-type: application/json\" -H \"Cache-Control: no-cache\" -H \"Cookie: zt-session=${NetworkSession_V7C}\""
 
 							# Release uncessary sensitive variables.
@@ -1513,19 +1519,19 @@ function GetObjects_V7C() {
 					FilterString='.' # Set the filter to grab everything in subsequent ListObject calls.
 					for ((i=0;i<${#AllEndpoints[*]};i++)); do
 
-						# 0/REGSTATE|APISESSION 1/REGEXPIREDATE|ROUTERCONNECTION 2/NAME 3/POLICYID
+						# REGSTATE|APISESSION:::REGEXPIREDATE|ROUTERCONNECTION:::NAME=>POLICYID
 						unset Target_ENDPOINT[{0..3}]
 						Target_ENDPOINT[0]="${AllEndpoints[${i}]}"
-						Target_ENDPOINT[0]="${Target_ENDPOINT[0]/=>${Target_ENDPOINT[3]:=${Target_ENDPOINT[0]##*=>}}/}"
-						Target_ENDPOINT[0]="${Target_ENDPOINT[0]/:::${Target_ENDPOINT[2]:=${Target_ENDPOINT[0]##*:::}}/}"
-						Target_ENDPOINT[0]="${Target_ENDPOINT[0]/:::${Target_ENDPOINT[1]:=${Target_ENDPOINT[0]##*:::}}/}"
-						Target_ENDPOINT[0]="${Target_ENDPOINT[0]/:::${Target_ENDPOINT[0]:=${Target_ENDPOINT[0]##*:::}}/}"
+						Target_ENDPOINT[0]="${Target_ENDPOINT[0]/=>${Target_ENDPOINT[3]:=${Target_ENDPOINT[0]##*=>}}/}" # POLICYID
+						Target_ENDPOINT[0]="${Target_ENDPOINT[0]/:::${Target_ENDPOINT[2]:=${Target_ENDPOINT[0]##*:::}}/}" # NAME
+						Target_ENDPOINT[0]="${Target_ENDPOINT[0]/:::${Target_ENDPOINT[1]:=${Target_ENDPOINT[0]##*:::}}/}" # REGEXPIREDATE|ROUTERCONNECTION
+						Target_ENDPOINT[0]="${Target_ENDPOINT[0]/:::${Target_ENDPOINT[0]:=${Target_ENDPOINT[0]##*:::}}/}" # REGSTATE|APISESSION
 
 						if [[ ${Target_ENDPOINT[0]} == "UNREGISTERED" ]]; then
 							[[ ${Target_ENDPOINT[1]} -lt 0 ]] \
 								&& Target_ENDPOINT[1]="EXPIRED" \
 								|| Target_ENDPOINT[1]="UNREGISTERED"
-						fi						
+						fi
 
 						PrintHelper "BOXITEMA" "EPT$(printf "%04d" "$((i+1))")" "${Target_ENDPOINT[0]}:::${Target_ENDPOINT[1]}_ENDPOINT" "${Target_ENDPOINT[2]}=>${Target_ENDPOINT[3]}"
 
@@ -1535,6 +1541,13 @@ function GetObjects_V7C() {
 							;;
 
 							"FOLLOW-PSERVICES")
+								# Give the user the ability to halt further analysis.
+								if [[ $((i%25)) -eq 0 ]] && [[ ${i} -ne 0 ]]; then
+									! GetYorN "Shown ${i}/${#AllEndpoints[*]} - Show more?" "Yes" "5" \
+										&& ClearLines "1" \
+										&& break
+								fi
+
 								PrintHelper "BOXITEMASUBLINEA"
 
 								if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/identities/${Target_ENDPOINT[3]}/service-policies" "200"; then
@@ -1578,6 +1591,13 @@ function GetObjects_V7C() {
 							;;
 
 							"FOLLOW-ASERVICES")
+								# Give the user the ability to halt further analysis.
+								if [[ $((i%10)) -eq 0 ]] && [[ ${i} -ne 0 ]]; then
+									! GetYorN "Shown ${i}/${#AllEndpoints[*]} - Show more?" "Yes" "5" \
+										&& ClearLines "1" \
+										&& break
+								fi
+
 								PrintHelper "BOXITEMASUBLINEA"
 
 								if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/identities/${Target_ENDPOINT[3]}/service-policies${METAOptions}" "200"; then
@@ -1630,7 +1650,13 @@ function GetObjects_V7C() {
 													' <<< "${OutputJSON}"
 												)
 
-												PrintHelper "BOXITEMASUB" "SPL$(printf "%04d" "$((j+1))")" "NORMAL:::SERVICEPOLICY" "┏${AllServicePolicies[${j}]}"
+												# No Services in the Service Policy?
+												if [[ ${#AllServices[*]} -eq 0 ]]; then
+													PrintHelper "BOXITEMASUB" "SPL$(printf "%04d" "$((j+1))")" "WARNING:::EMPTY_SERVICEPOLICY" "${AllServicePolicies[${j}]}"
+													continue
+												else
+													PrintHelper "BOXITEMASUB" "SPL$(printf "%04d" "$((j+1))")" "NORMAL:::SERVICEPOLICY" "┏${AllServicePolicies[${j}]}"
+												fi
 
 												for ((k=0;k<${#AllServices[*]};k++)); do
 
@@ -1673,13 +1699,13 @@ function GetObjects_V7C() {
 
 						for ((i=0;i<${#AllEndpoints[*]};i++)); do
 
-							# 0/REGSTATE|APISESSION 1/REGEXPIREDATE|ROUTERCONNECTION 2/NAME 3/POLICYID
+							# REGSTATE|APISESSION:::REGEXPIREDATE|ROUTERCONNECTION:::NAME=>POLICYID
 							unset Target_ENDPOINT[{0..3}]
 							Target_ENDPOINT[0]="${AllEndpoints[${i}]}"
-							Target_ENDPOINT[0]="${Target_ENDPOINT[0]/=>${Target_ENDPOINT[3]:=${Target_ENDPOINT[0]##*=>}}/}"
-							Target_ENDPOINT[0]="${Target_ENDPOINT[0]/:::${Target_ENDPOINT[2]:=${Target_ENDPOINT[0]##*:::}}/}"
-							Target_ENDPOINT[0]="${Target_ENDPOINT[0]/:::${Target_ENDPOINT[1]:=${Target_ENDPOINT[0]##*:::}}/}"
-							Target_ENDPOINT[0]="${Target_ENDPOINT[0]/:::${Target_ENDPOINT[0]:=${Target_ENDPOINT[0]##*:::}}/}"
+							Target_ENDPOINT[0]="${Target_ENDPOINT[0]/=>${Target_ENDPOINT[3]:=${Target_ENDPOINT[0]##*=>}}/}" # POLICYID
+							Target_ENDPOINT[0]="${Target_ENDPOINT[0]/:::${Target_ENDPOINT[2]:=${Target_ENDPOINT[0]##*:::}}/}" # NAME
+							Target_ENDPOINT[0]="${Target_ENDPOINT[0]/:::${Target_ENDPOINT[1]:=${Target_ENDPOINT[0]##*:::}}/}" # REGEXPIREDATE|ROUTERCONNECTION
+							Target_ENDPOINT[0]="${Target_ENDPOINT[0]/:::${Target_ENDPOINT[0]:=${Target_ENDPOINT[0]##*:::}}/}" # REGSTATE|APISESSION
 
 							if [[ ${Target_ENDPOINT[0]} == "UNREGISTERED" ]]; then
 								[[ ${Target_ENDPOINT[1]} -lt 0 ]] \
@@ -1715,11 +1741,10 @@ function GetObjects_V7C() {
 
 		"EDGEROUTERS"|"DERIVE-EDGEROUTERS")
 			if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/edge-routers${METAOptions}" "200"; then
+
 				PrintHelper "BOXHEADLINEA" "ITEM #" "NORMAL:::TYPE/CLASS/INDICATOR" "DESCRIPTION=>ID" >&2
 
 				# Gather all objects which match one of the following in order of check A) FilterString=OnlyIfFollowed B) PrimaryFilterString=OnlyFirstList
-				#  STATUS = ACTIVE or INACTIVE
-				#  STATE  = ONLINE or OFFLINE
 				read -d '' -ra AllEdgeRouters < <( \
 					jq -r '
 						(
@@ -1731,7 +1756,7 @@ function GetObjects_V7C() {
 						| if (.isOnline) then
 								.isOnline = "ONLINE"
 							else
-								.isOnline = "OFFLINE"
+								.isOnline = "OFFLINE" | .hostname = "0:0"
 							end
 						| if (.isVerified) then
 								.isVerified = "VERFIED"
@@ -1764,26 +1789,24 @@ function GetObjects_V7C() {
 
 						for ((i=0;i<${#AllEdgeRouters[*]};i++)); do
 
-							Target_EDGEROUTER[0]="${AllEdgeRouters[${i}]%%=>*}" # ONLINESTATUS:::VERIFIEDSTATUS:::NAME:::HOSTNAME:PORT
-							Target_EDGEROUTER[1]=${AllEdgeRouters[${i}]##*=>} # POLICY ID
-							Target_EDGEROUTER[2]="${Target_EDGEROUTER[0]%:::*}" # ONLINESTATUS:::VERIFIEDSTATUS:::NAME
-							Target_EDGEROUTER[3]="${Target_EDGEROUTER[2]%:::*}" # ONLINESTATUS:::VERIFIEDSTATUS
-							Target_EDGEROUTER[4]="${Target_EDGEROUTER[2]%:::*}" # ONLINESTATUS
-							Target_EDGEROUTER[5]="${Target_EDGEROUTER[2]##*:::}" # NAME
-							Target_EDGEROUTER[6]="${Target_EDGEROUTER[3]##*:::}" # VERIFIEDSTATUS
-							Target_EDGEROUTER[7]="${Target_EDGEROUTER[0]##*:::}" # HOSTNAME:PORT
-							Target_EDGEROUTER[8]="${Target_EDGEROUTER[7]%%:*}" # HOSTNAME
-							Target_EDGEROUTER[9]="${Target_EDGEROUTER[7]##*:}" # PORT
+							# ONLINESTATUS:::VERIFIEDSTATUS:::NAME:::HOSTNAME:PORT=>POLICYID
+							unset Target_EDGEROUTER[{0..4}]
+							Target_EDGEROUTER[0]="${AllEdgeRouters[${i}]}"
+							Target_EDGEROUTER[0]="${Target_EDGEROUTER[0]/=>${Target_EDGEROUTER[4]:=${Target_EDGEROUTER[0]##*=>}}/}" # POLICYID
+							Target_EDGEROUTER[0]="${Target_EDGEROUTER[0]/:::${Target_EDGEROUTER[3]:=${Target_EDGEROUTER[0]##*:::}}/}" # HOSTNAME:PORT
+							Target_EDGEROUTER[0]="${Target_EDGEROUTER[0]/:::${Target_EDGEROUTER[2]:=${Target_EDGEROUTER[0]##*:::}}/}" # NAME
+							Target_EDGEROUTER[0]="${Target_EDGEROUTER[0]/:::${Target_EDGEROUTER[1]:=${Target_EDGEROUTER[0]##*:::}}/}" # VERIFIEDSTATUS
+							Target_EDGEROUTER[0]="${Target_EDGEROUTER[0]/:::${Target_EDGEROUTER[0]:=${Target_EDGEROUTER[0]##*:::}}/}" # ONLINESTATUS
 
 							# URLTrail specification indicates this is a secondary GetObjects_V7C call which links to a parent/header.
 							if [[ ${URLTrail} ]]; then
 								if [[ $((i+1)) -ne ${#AllEdgeRouters[*]} ]]; then
-									PrintHelper "BOXITEMASUB" "ERT$(printf "%04d" "$((i+1))")" "${Target_EDGEROUTER[3]}_EDGEROUTER" "┣━$(printf "%-42.42s %15.15s:%-4.4s" "${Target_EDGEROUTER[5]}" "${Target_EDGEROUTER[8]}" "${Target_EDGEROUTER[9]}")=>${Target_EDGEROUTER[1]}"
+									PrintHelper "BOXITEMASUB" "ERT$(printf "%04d" "$((i+1))")" "${Target_EDGEROUTER[0]}:::${Target_EDGEROUTER[1]}_EDGEROUTER" "┣━$(printf "%-42.42s %15.15s:%-4.4s" "${Target_EDGEROUTER[2]}" "${Target_EDGEROUTER[3]%%:*}" "${Target_EDGEROUTER[3]##*:}")=>${Target_EDGEROUTER[4]}"
 								else
-									PrintHelper "BOXITEMASUB" "ERT$(printf "%04d" "$((i+1))")" "${Target_EDGEROUTER[3]}_EDGEROUTER" "┗━$(printf "%-42.42s %15.15s:%-4.4s" "${Target_EDGEROUTER[5]}" "${Target_EDGEROUTER[8]}" "${Target_EDGEROUTER[9]}")=>${Target_EDGEROUTER[1]}"
+									PrintHelper "BOXITEMASUB" "ERT$(printf "%04d" "$((i+1))")" "${Target_EDGEROUTER[0]}:::${Target_EDGEROUTER[1]}_EDGEROUTER" "┗━$(printf "%-42.42s %15.15s:%-4.4s" "${Target_EDGEROUTER[2]}" "${Target_EDGEROUTER[3]%%:*}" "${Target_EDGEROUTER[3]##*:}")=>${Target_EDGEROUTER[4]}"
 								fi
 							else
-								PrintHelper "BOXITEMA" "ERT$(printf "%04d" "$((i+1))")" "${Target_EDGEROUTER[3]}_EDGEROUTER" "$(printf "%-42.42s %15.15s:%-4.4s" "${Target_EDGEROUTER[5]}" "${Target_EDGEROUTER[8]}" "${Target_EDGEROUTER[9]}")=>${Target_EDGEROUTER[1]}"
+								PrintHelper "BOXITEMA" "ERT$(printf "%04d" "$((i+1))")" "${Target_EDGEROUTER[0]}:::${Target_EDGEROUTER[1]}_EDGEROUTER" "$(printf "%-42.42s %15.15s:%-4.4s" "${Target_EDGEROUTER[2]}" "${Target_EDGEROUTER[3]%%:*}" "${Target_EDGEROUTER[3]##*:}")=>${Target_EDGEROUTER[4]}"
 							fi
 
 						done
@@ -1803,11 +1826,10 @@ function GetObjects_V7C() {
 
 		"SERVICES"|"DERIVE-SERVICE")
 			if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/services${METAOptions}" "200"; then
+
 				PrintHelper "BOXHEADLINEA" "ITEM #" "NORMAL:::TYPE/CLASS/INDICATOR" "DESCRIPTION=>ID" >&2
 
 				# Gather all objects which match one of the following in order of check A) FilterString=OnlyIfFollowed B) PrimaryFilterString=OnlyFirstList
-				#  STATUS = ACTIVE or INACTIVE
-				#  STATE  = ONLINE or OFFLINE
 				read -d '' -ra AllServices < <( \
 					jq -r '
 						(
@@ -1842,8 +1864,11 @@ function GetObjects_V7C() {
 
 						for ((i=0;i<${#AllServices[*]};i++)); do
 
-							Target_SERVICE[0]="${AllServices[${i}]%%=>*}" # NAME
-							Target_SERVICE[1]="${AllServices[${i}]##*=>}" # POLICY ID
+							# NAME=>POLICYID
+							unset Target_SERVICE[{0..1}]
+							Target_SERVICE[0]="${AllServices[${i}]}"
+							Target_SERVICE[0]="${Target_SERVICE[0]/=>${Target_SERVICE[1]:=${Target_SERVICE[0]##*=>}}/}" # POLICYID
+							Target_SERVICE[0]="${Target_SERVICE[0]/:::${Target_SERVICE[0]:=${Target_SERVICE[0]##*:::}}/}" # NAME
 
 							# URLTrail specification indicates this is a secondary GetObjects_MOP call which links to a parent/header.
 							if [[ ${URLTrail} ]]; then
@@ -1871,14 +1896,12 @@ function GetObjects_V7C() {
 			return 1
 		;;
 
-
 		"ENROLLMENTS"|"DERIVE-ENROLLMENTS")
 			if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/enrollments${METAOptions}" "200"; then
+
 				PrintHelper "BOXHEADLINEA" "ITEM #" "NORMAL:::TIME LEFT" "DESCRIPTION=>ID" >&2
 
 				# Gather all objects which match one of the following in order of check A) FilterString=OnlyIfFollowed B) PrimaryFilterString=OnlyFirstList
-				#  STATUS = ACTIVE or INACTIVE
-				#  STATE  = ONLINE or OFFLINE
 				read -d '' -ra AllEnrollments < <( \
 					jq -r '
 						(
@@ -1891,9 +1914,9 @@ function GetObjects_V7C() {
 						|.identity.name? as $THISEPTNAME
 						|(((.expiresAt | split(".")[0] | strptime("%Y-%m-%dT%H:%M:%S") | mktime) - (now))| tostring | split(".")[0]) as $THISEXPDATE
 						|((._links.self.href | split("/"))[-1]) as $THISPOLICYID
-						| if ($THISEPTNAME != null) then 
+						| if ($THISEPTNAME != null) then
 							"[EPT] " + $THISEPTNAME + ":::" + $THISEXPDATE + "=>" + $THISPOLICYID
-						elif ($THISERTNAME != null) then 
+						elif ($THISERTNAME != null) then
 							"[ERT] " + $THISERTNAME + ":::" + $THISEXPDATE + "=>" + $THISPOLICYID
 						else
 							empty
@@ -1923,18 +1946,21 @@ function GetObjects_V7C() {
 
 						for ((i=0;i<${#AllEnrollments[*]};i++)); do
 
-							# 0/NAME 1/EXPIREDATE 2/POLICYID
+							unset AlertStyle
+
+							# NAME:::EXPIREDATE=>POLICYID
 							unset Target_ENROLLMENT[{0..7}]
 							Target_ENROLLMENT[0]="${AllEnrollments[${i}]}"
-							Target_ENROLLMENT[0]="${Target_ENROLLMENT[0]/=>${Target_ENROLLMENT[2]:=${Target_ENROLLMENT[0]##*=>}}/}"
-							Target_ENROLLMENT[0]="${Target_ENROLLMENT[0]/:::${Target_ENROLLMENT[1]:=${Target_ENROLLMENT[0]##*:::}}/}"
-							Target_ENROLLMENT[0]="${Target_ENROLLMENT[0]/:::${Target_ENROLLMENT[0]:=${Target_ENROLLMENT[0]##*:::}}/}"
+							Target_ENROLLMENT[0]="${Target_ENROLLMENT[0]/=>${Target_ENROLLMENT[2]:=${Target_ENROLLMENT[0]##*=>}}/}" # POLICYID
+							Target_ENROLLMENT[0]="${Target_ENROLLMENT[0]/:::${Target_ENROLLMENT[1]:=${Target_ENROLLMENT[0]##*:::}}/}" # EXPIREDATE
+							Target_ENROLLMENT[0]="${Target_ENROLLMENT[0]/:::${Target_ENROLLMENT[0]:=${Target_ENROLLMENT[0]##*:::}}/}" # NAME
 							Target_ENROLLMENT[3]="$((Target_ENROLLMENT[1]/86400))" # DAYS LEFT
 							Target_ENROLLMENT[4]="$((Target_ENROLLMENT[1]%24))" # HOURS LEFT
 							Target_ENROLLMENT[5]="$((Target_ENROLLMENT[1]%3600/60))" # MINUTES LEFT
 							Target_ENROLLMENT[6]="$((Target_ENROLLMENT[1]%60))" # SECONDS LEFT
 							Target_ENROLLMENT[7]="$(printf '%4sd %4sh %4sm %4ss' "${Target_ENROLLMENT[3]}" "${Target_ENROLLMENT[4]}" "${Target_ENROLLMENT[5]}" "${Target_ENROLLMENT[6]}")"
 
+							# For the color of the line, evaluate the time until expiration and set the AlertStyle.
 							if [[ ${Target_ENROLLMENT[1]} -gt 43200 ]]; then
 								AlertStyle="NORMAL"
 							elif [[ ${Target_ENROLLMENT[1]} -le 43200 ]] && [[ ${Target_ENROLLMENT[1]} -gt 0 ]]; then
@@ -1969,6 +1995,125 @@ function GetObjects_V7C() {
 			return 1
 		;;
 
+		"VERSIONS")
+			AttentionMessage "GENERALINFO" "Gathering version information on all Endpoints."
+			if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/identities${METAOptions}" "200"; then
+				ClearLines "1"
+				read -d '' -ra AllEndpointVersions < <( \
+					jq -r '
+						(
+							select(.data != null)
+							| .data
+							| sort_by(.name)
+							| .[]
+						)
+						| select(.type.name == "Device")
+						| "[EPT] " + .name + ":::" + .sdkInfo.version + "=>" + (._links.self.href | split("/"))[-1]
+					' <<< "${OutputJSON}" \
+					| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}"
+				)
+			else
+				AttentionMessage "YELLOWINFO" "There were no Endpoints present."
+				sleep 3
+				ClearLines "1"
+			fi
+
+			AttentionMessage "GENERALINFO" "Gathering version information on all EdgeRouters."
+			if ProcessResponse "${GETSyntax_V7C}" "${APIRESTURL[2]}/edge-routers${METAOptions}" "200"; then
+				ClearLines "1"
+				read -d '' -ra AllEdgeRouterVersions < <( \
+					jq -r '
+						(
+							select(.data != null)
+							| .data
+							| sort_by(.name)
+							| .[]
+						)
+						| select(.versionInfo.version != "")
+						| "[ERT] " + .name + ":::" + .versionInfo.version + "=>" + (._links.self.href | split("/"))[-1]
+					' <<< "${OutputJSON}" \
+					| grep -Ei "${FilterString:-${PrimaryFilterString:-.}}"
+				)
+			else
+				AttentionMessage "YELLOWINFO" "There were no EdgeRouters present."
+				sleep 3
+				ClearLines "1"
+			fi
+
+			PrintHelper "BOXHEADLINEA" "ITEM #" "NORMAL:::VERSION" "DESCRIPTION=>UUID | ID"
+
+			# Combine all versions available.
+			AllVersions=( ${AllEdgeRouterVersions[*]} ${AllEndpointVersions[*]} )
+
+			# No reason to continue if there are no objects to analyze.
+			if [[ ${#AllVersions[*]} -eq 0 ]]; then
+
+				PrintHelper "BOXITEMA" "VER...." "ERROR:::INFO" "No Endpoints or EdgeRouters found."
+				PrintHelper "BOXFOOTLINEA"
+				return 1
+
+			else
+
+				# First item will always be the network metadata.
+				PrintHelper "BOXITEMA" "VER0000" "NORMAL:::${NetworkMetadata_V7C[1]}" "[NET] ${Target_NETWORK[1]}=>${Target_NETWORK[0]}"
+				
+				# VER_MAJOR.VER_MINOR.VER_PATCH-EXTRA
+				unset Target_NETDETAIL[{0..2}]
+				Target_NETDETAIL[0]="${NetworkMetadata_V7C[1]}"
+				Target_NETDETAIL[0]="${Target_NETDETAIL[0]/\.${Target_NETDETAIL[2]:=${Target_NETDETAIL[0]##*\.}}/}" # VER_PATCH-EXTRA
+				Target_NETDETAIL[0]="${Target_NETDETAIL[0]/\.${Target_NETDETAIL[1]:=${Target_NETDETAIL[0]##*\.}}/}" # VER_MINOR
+				Target_NETDETAIL[0]="${Target_NETDETAIL[0]/\.${Target_NETDETAIL[0]:=${Target_NETDETAIL[0]##*\.}}/}" # VER_MAJOR
+
+				for ((i=0;i<${#AllVersions[*]};i++)); do
+
+					unset AlertStyle
+
+					# NAME:::VERSION=>POLICYID
+					unset Target_VERSION[{0..2}] 
+					Target_VERSION[0]="${AllVersions[${i}]}"
+					Target_VERSION[0]="${Target_VERSION[0]/=>${Target_VERSION[2]:=${Target_VERSION[0]##*=>}}/}" # POLICYID
+					Target_VERSION[0]="${Target_VERSION[0]/:::${Target_VERSION[1]:=${Target_VERSION[0]##*:::}}/}" # VERSION
+					Target_VERSION[0]="${Target_VERSION[0]/:::${Target_VERSION[0]:=${Target_VERSION[0]##*:::}}/}" # NAME
+
+					# VER_MAJOR.VER_MINOR.VER_PATCH-EXTRA
+					unset Target_VERSIONDETAIL[{0..2}]
+					Target_VERSIONDETAIL[0]="${Target_VERSION[1]}"
+					Target_VERSIONDETAIL[0]="${Target_VERSIONDETAIL[0]/\.${Target_VERSIONDETAIL[2]:=${Target_VERSIONDETAIL[0]##*\.}}/}" # VER_PATCH-EXTRA
+					Target_VERSIONDETAIL[0]="${Target_VERSIONDETAIL[0]/\.${Target_VERSIONDETAIL[1]:=${Target_VERSIONDETAIL[0]##*\.}}/}" # VER_MINOR
+					Target_VERSIONDETAIL[0]="${Target_VERSIONDETAIL[0]/\.${Target_VERSIONDETAIL[0]:=${Target_VERSIONDETAIL[0]##*\.}}/}" # VER_MAJOR
+
+					# For the color of the line, evaluate against the MINOR version of the network. 
+					# ONLY if the version is available.
+					if [[ -n ${Target_VERSIONDETAIL[0]} ]]; then
+						# Greater than 2 versions older or newer than 1 version against the network version.
+						if [[ $((Target_VERSIONDETAIL[1]-Target_NETDETAIL[1])) -gt 2 ]] || [[ $((Target_NETDETAIL[1]-Target_VERSIONDETAIL[1])) -gt 2 ]]; then
+							AlertStyle="ALERT"
+						# Greater than 1 versions older or newer than 1 version against the network version.
+						elif [[ $((Target_VERSIONDETAIL[1]-Target_NETDETAIL[1])) -ge 1 ]] || [[ $((Target_NETDETAIL[1]-Target_VERSIONDETAIL[1])) -ge 1 ]]; then
+							AlertStyle="WARNING"
+						# Same version.
+						else
+							AlertStyle="NORMAL"
+						fi
+						# Override if the MAJOR version is different.
+						if [[ ${Target_VERSIONDETAIL[0]/v/} =~ ^[0-9]+$ ]] && ([[ $((${Target_VERSIONDETAIL[0]/v/}-${Target_NETDETAIL[0]/v/})) -ge 1 ]] || [[ $((${Target_NETDETAIL[0]/v/}-${Target_VERSIONDETAIL[0]/v/})) -ge 1 ]]); then
+							AlertStyle="ALERT"
+						fi
+					else 
+						AlertStyle="UNREGISTERED"
+					fi
+
+					PrintHelper "BOXITEMA" "VER$(printf "%04d" "$((i+1))")" "${AlertStyle:-NORMAL}:::${Target_VERSION[1]}" "${Target_VERSION[0]}=>${Target_VERSION[2]}"
+
+				done
+
+				PrintHelper "BOXFOOTLINEA" >&2
+
+			fi
+
+			return 1
+		;;
+
 	esac
 }
 
@@ -1991,10 +2136,10 @@ function SetObjects_V7C() {
 				if ProcessResponse "${DELETESyntax_V7C}" "${APIRESTURL[2]}/current-api-session" "200"; then
 					[[ -n ${NetworkMetadata_V7C[0]} ]] \
 						&& NetworkMetadata_V7C=( "${RANDOM}${RANDOM}" "${RANDOM}${RANDOM}" ) \
-						&& unset NetworkMetadata_V7C
+						&& unset NetworkMetadata_V7C[{0..10}]
 					[[ -n ${NetworkAccess_V7C[0]} ]] \
 						&& NetworkAccess_V7C=( "${RANDOM}${RANDOM}" "${RANDOM}${RANDOM}" "${RANDOM}${RANDOM}" "${RANDOM}${RANDOM}" ) \
-						&& unset NetworkAccess_V7C
+						&& unset NetworkAccess_V7C[{0..10}]
 					AttentionMessage "GENERALINFO" "In-Memory V7 Network metadata was destroyed successfully."
 					return 0
 				else
@@ -2201,6 +2346,7 @@ function GetObjects_MOP() {
 
 		"COUNTRIES")
 			if ProcessResponse "${GETSyntax_MOP}" "${APIRESTURL[0]}/countries" "200"; then
+
 				PrintHelper "BOXHEADLINEA" "ITEM #" "NORMAL:::TYPE/INDICATOR" "DESCRIPTION=>UUID" >&2
 
 					read -d '' -ra AllCountries < <( \
@@ -2271,6 +2417,7 @@ function GetObjects_MOP() {
 
 		"GATEWAYS")
 			if ProcessResponse "${GETSyntax_MOP}" "${APIRESTURL[0]}/networks/${Target_NETWORK[0]}/endpoints" "200"; then
+
 				PrintHelper "BOXHEADLINEA" "ITEM #" "NORMAL:::TYPE/CLASS/INDICATOR" "DESCRIPTION=>UUID"
 
 				read -d '' -ra AllGateways < <( \
@@ -2342,6 +2489,7 @@ function GetObjects_MOP() {
 
 		"ENDPOINTS"|"DERIVE-ENDPOINT")
 			if ProcessResponse "${GETSyntax_MOP}" "${APIRESTURL[0]}/networks/${Target_NETWORK[0]}/${URLTrail:-endpoints}" "200"; then
+
 				PrintHelper "BOXHEADLINEA" "ITEM #" "NORMAL:::TYPE/CLASS/INDICATOR" "DESCRIPTION=>UUID" >&2
 
 				# Special scenario for ENDPOINTS following SERVICE associations.
@@ -2632,6 +2780,7 @@ function GetObjects_MOP() {
 
 		"SERVICES"|"DERIVE-SERVICE")
 			if ProcessResponse "${GETSyntax_MOP}" "${APIRESTURL[0]}/networks/${Target_NETWORK[0]}/${URLTrail:-services}" "200"; then
+
 				PrintHelper "BOXHEADLINEA" "ITEM #" "NORMAL:::TYPE/CLASS/INDICATOR" "DESCRIPTION=>UUID" >&2
 
 				# Gather all objects which match one of the following in order of check A) FilterString=OnlyIfFollowed B) PrimaryFilterString=OnlyFirstList
@@ -2760,6 +2909,7 @@ function GetObjects_MOP() {
 
 		"APPWANS"|"DERIVE-APPWAN")
 			if ProcessResponse "${GETSyntax_MOP}" "${APIRESTURL[0]}/networks/${Target_NETWORK[0]}/${URLTrail:-appWans}" "200"; then
+
 				PrintHelper "BOXHEADLINEA" "ITEM #" "NORMAL:::TYPE/CLASS/INDICATOR" "DESCRIPTION=>UUID" >&2
 
 				# Gather all objects which match one of the following in order of check A) FilterString=OnlyIfFollowed B) PrimaryFilterString=OnlyFirstList
@@ -4420,9 +4570,10 @@ function SelectNetwork() {
 			AttentionMessage "DEBUG" "Access   (ZTPASS)  = ${NetworkAccess_V7C[2]}"
 			AttentionMessage "DEBUG" "Metadata (IP)      = ${NetworkMetadata_V7C[0]%%=>*}"
 			AttentionMessage "DEBUG" "Metadata (SESSION) = ${NetworkMetadata_V7C[0]##*=>}"
+			AttentionMessage "DEBUG" "Metadata (VERSION) = ${NetworkMetadata_V7C[1]}"
 			AttentionMessage "DEBUG" "Metadata (CACERT)  = SEE BELOW FOR PEM FORMAT CERTIFICATE."
 			[[ ${DebugInfo} == "TRUE" ]] \
-				&& echo "${NetworkMetadata_V7C[1]}"
+				&& echo "${NetworkMetadata_V7C[2]}"
 			return 0
 		else
 			ClearLines "1"
@@ -6374,6 +6525,8 @@ function LaunchMAIN() {
 		#"List Services"
 		"List Enrollments (D2C)"
 		#"List Enrollments"
+		"List Versions (D2C)"
+		#"List Versions"
 	)
 	V6_AllMACDOptions=( \
 		"Modify AppWAN Associations"
@@ -6653,6 +6806,21 @@ function LaunchMAIN() {
 										;;
 									esac
 								done
+							;;
+
+							"List Versions (D2C)")
+								while true; do
+									CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/ListingD2C/Versions"
+									! GetFilterString \
+										&& continue
+									AttentionMessage "GENERALINFO" "The following is a list (FILTER [${PrimaryFilterString:-.}]) of Versions in Network \"${Target_NETWORK[1]}\"."
+									GetObjects_V7C "VERSIONS"
+									break
+								done
+							;;
+
+							"List Versions")
+								AttentionMessage "YELLOWINFO" "Function not yet implemented." && continue
 							;;
 
 						esac
