@@ -2601,7 +2601,7 @@ function GetObjects_MOP() {
 								if [[ ${AskDelete:-0} -eq 3 ]]; then
 									PrintHelper "BOXITEMASUB" "......." "WARNING:::WARNING" "No EndpointGroup, AppWAN, or Service associations were found."
 									GetYorN "Do you wish to remove \"${Target_ENDPOINT[0]##*:::}\"?" "No" "10" \
-										&& SetObjects_MOP "DELENDPOINT" "${Target_ENDPOINT[1]}"
+										&& SetObjects_MOP_V6 "DELENDPOINT" "${Target_ENDPOINT[1]}"
 									ClearLines "2"
 								fi
 							;;
@@ -2694,7 +2694,7 @@ function GetObjects_MOP() {
 						! GetObjects_MOP "ENDPOINTS" "endpointGroups/${Target_ENDPOINTGROUP[1]}/endpoints" 2>/dev/null \
 							&& PrintHelper "BOXITEMASUB" "EPT...." "NORMAL:::" "No direct Endpoint associations were found." \
 							&& (GetYorN "Do you wish to remove \"${Target_ENDPOINTGROUP[0]}\"?" "No" "10" \
-								&& SetObjects_MOP "DELENDPOINTGROUP" "${Target_ENDPOINTGROUP[1]}") \
+								&& SetObjects_MOP_V6 "DELENDPOINTGROUP" "${Target_ENDPOINTGROUP[1]}") \
 							&& ClearLines "2"
 
 						[[ $((i+1)) -eq ${#AllEndpointGroups[*]} ]] \
@@ -2718,7 +2718,7 @@ function GetObjects_MOP() {
 							! GetObjects_MOP "ENDPOINTS" "endpointGroups/${Target_ENDPOINTGROUP[1]}/endpoints" 2>/dev/null \
 								&& PrintHelper "BOXITEMASUB" "EPT...." "NORMAL:::" "No direct Endpoint associations were found." \
 								&& (GetYorN "Do you wish to remove \"${Target_ENDPOINTGROUP[0]}\"?" "No" "10" \
-									&& SetObjects_MOP "DELENDPOINTGROUP" "${Target_ENDPOINTGROUP[1]}") \
+									&& SetObjects_MOP_V6 "DELENDPOINTGROUP" "${Target_ENDPOINTGROUP[1]}") \
 								&& ClearLines "2"
 
 							[[ $((i+1)) -eq ${#AllEndpointGroups[*]} ]] \
@@ -2854,7 +2854,7 @@ function GetObjects_MOP() {
 						[[ ${AskDelete:-0} -eq 2 ]] \
 							&& PrintHelper "BOXITEMASUB" "SRV...." "ERROR:::ERROR" "No direct Endpoint or AppWAN associations were found." \
 							&& (GetYorN "Do you wish to remove \"${Target_SERVICE[0]##*:::}\"?" "No" "10" \
-								&& SetObjects_MOP "DELSERVICE" "${Target_SERVICE[1]}") \
+								&& SetObjects_MOP_V6 "DELSERVICE" "${Target_SERVICE[1]}") \
 							&& ClearLines "2"
 
 						[[ $((i+1)) -eq ${#AllServices[*]} ]] \
@@ -3044,7 +3044,7 @@ function GetObjects_MOP() {
 						if [[ ${AskDelete:-0} -eq 3 ]]; then
 							PrintHelper "BOXITEMASUB" "EPT...." "WARNING:::WARNING" "No direct Endpoint, EndpointGroup, or Service associations were found."
 							GetYorN "Do you wish to remove \"${Target_APPWAN[0]##*:::}\"?" "No" "10" \
-								&& SetObjects_MOP "DELAPPWAN" "${Target_APPWAN[1]}"
+								&& SetObjects_MOP_V6 "DELAPPWAN" "${Target_APPWAN[1]}"
 							ClearLines "2"
 						fi
 
@@ -4208,7 +4208,7 @@ function RunMacro() {
 
 #################################################################################
 # Sets objects using the API.
-function SetObjects_MOP() {
+function SetObjects_MOP_V6() {
 	# 1/TYPE 2-10/[DATAFIELDS]
 	local SetType="${1}"
 	local MaxTries="10" # MACD max attempts.
@@ -4229,7 +4229,7 @@ function SetObjects_MOP() {
 		;;
 
 		"EMAILALERT")
-			# 2/ENDPOINTUUID 3/EMAILADDRESS 4/NAME
+			# 2/ENDPOINTUUID 3/EMAILADDRESS 4/MESSAGE
 			DATASyntax="--data '{\"toList\":\""${3}"\",\"subject\":\"NetFoundry - Registration Information\",\"from\":\"no-reply@netfoundry.io\",\"replacementParams\":{\"USER\":\""${4}"\"}}'"
 			if ProcessResponse "${POSTSyntax_MOP} ${DATASyntax}" "${APIRESTURL[0]}/networks/${Target_NETWORK[0]}/endpoints/${2}/share" "202"; then
 				return 0
@@ -4531,6 +4531,52 @@ function SetObjects_MOP() {
 }
 
 #################################################################################
+# Sets objects using the API (V7).
+function SetObjects_MOP_V7() {
+	# 1/TYPE 2-10/[DATAFIELDS]
+	local SetType="${1}"
+	local MaxTries="10" # MACD max attempts.
+	local DATASyntax # The syntax to send to API.
+	unset SetObjectReturn # Ensure this is not already set.
+
+	# Set what type of object?
+	case ${SetType} in
+
+		"EMAILALERT")
+			# 2/ENDPOINTUUID 3/EMAILADDRESS 4/MESSAGE
+			DATASyntax="--data '[{\"toList\":[\"${3}\"],\"subject\":\"NetFoundry - Enrollment Information\",\"id\":\"${2}\",\"from\":\"no-reply@netfoundry.io\",\"replacementParams\":{\"NETWORKNAME\":\"${Target_NETWORK[1]}<br>INFO: ${4:-NONE}\"}}]'"
+
+			if ProcessResponse "${POSTSyntax_MOP} ${DATASyntax}" "${APIRESTURL[1]}/endpoints/share" "202"; then
+				return 0
+			else
+				SetObjectReturn="${OutputJSON}"
+				return 1
+			fi
+		;;	
+
+		"CREATEENDPOINT")
+			# 2/ENDPOINTNAME 3/ENDPOINTTYPE 4/GEOREGIONUUID
+			DATASyntax="--data '{\"networkId\":\"${Target_NETWORK[0]}\",\"name\":\"${2}\",\"enrollmentMethod\":{\"ott\":true,\"updb\":null,\"ottca\":null},\"attributes\":null}'"
+			! ProcessResponse "${POSTSyntax_MOP} ${DATASyntax}" "${APIRESTURL[1]}/endpoints" "200" \
+				&& return 1
+			read -d '' -ra SetObjectReturn < <( \
+				jq -r '
+					if type=="array" then
+						(.[] | "NOTREADY: " + .message)
+					else
+						(select(.jwt != null) | .jwt + "=>" + (._links.self.href | split("/"))[-1])
+					end
+				' <<< "${OutputJSON}" 2>&1
+			)
+			[[ ${SetObjectReturn:-NOTREADY} =~ "NOTREADY" ]] \
+				&& return 1 \
+				|| return 0
+		;;
+
+	esac
+}
+
+#################################################################################
 # Select and store available networks.
 function SelectOrganization() {
 	CurrentPath="/SelectOrganization"
@@ -4654,7 +4700,7 @@ function CreateAppWAN() {
 		|| return 0
 
 	AttentionMessage "GENERALINFO" "Creating AppWAN \"${Target_APPWANNAME}\"."
-	SetObjects_MOP "CREATEAPPWAN" "${Target_APPWANNAME}" \
+	SetObjects_MOP_V6 "CREATEAPPWAN" "${Target_APPWANNAME}" \
 		&& AttentionMessage "VALIDATED" "Request to create AppWAN is complete." \
 		|| (AttentionMessage "ERROR" "FAILED! Request to create AppWAN. See message below." \
 			&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}")
@@ -4677,7 +4723,7 @@ function CreateEndpointGroup() {
 		|| return 0
 
 	AttentionMessage "GENERALINFO" "Creating EndpointGroup \"${Target_ENDPOINTGROUPNAME}\"."
-	SetObjects_MOP "CREATEENDPOINTGROUP" "${Target_ENDPOINTGROUPNAME}" \
+	SetObjects_MOP_V6 "CREATEENDPOINTGROUP" "${Target_ENDPOINTGROUPNAME}" \
 		&& AttentionMessage "VALIDATED" "Request to create EndpointGroup is complete." \
 		|| (AttentionMessage "ERROR" "FAILED! Request to create EndpointGroup. See message below." \
 			&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}")
@@ -4723,7 +4769,7 @@ function CreateInternetServices() {
 
 	# First, create the AppWAN the Services will reside in.
 	AttentionMessage "GREENINFO" "Creating AppWAN \"${Target_APPWANNAME[0]}\"."
-	if SetObjects_MOP "CREATEAPPWAN" "${Target_APPWANNAME[0]}"; then
+	if SetObjects_MOP_V6 "CREATEAPPWAN" "${Target_APPWANNAME[0]}"; then
 		Target_APPWANNAME[1]="${SetObjectReturn##*=>}" # The UUID of the AppWAN.
 	else
 		AttentionMessage "ERROR" "FAILED! Request to create AppWAN \"${Target_APPWANNAME[0]}\" did not complete. See message below."
@@ -4739,7 +4785,7 @@ function CreateInternetServices() {
 		InterceptIP="${AllInternetServices[${i}]%%\/*}" # WWW.XXX.YYY.ZZZ
 		InterceptCIDR="${AllInternetServices[${i}]##*\/}" # [1-32]
 		AttentionMessage "GREENINFO" "[$((i+1))/${#AllInternetServices[*]}] Adding Service \"${FullName}\". [INGRESS > EGRESS : ${InterceptIP}/${InterceptCIDR} > ${GatewayIP}/${InterceptCIDR}]"
-		if SetObjects_MOP "CREATENETSERVICE" "${Target_GATEWAY[0]}" "${FullName}" "${InterceptIP}" "${GatewayIP}" "${InterceptCIDR}"; then
+		if SetObjects_MOP_V6 "CREATENETSERVICE" "${Target_GATEWAY[0]}" "${FullName}" "${InterceptIP}" "${GatewayIP}" "${InterceptCIDR}"; then
 			ServicesAddedArray=( "${SetObjectReturn##*=>}" ${ServicesAddedArray[*]} )
 		else
 			AttentionMessage "ERROR" "FAILED! Request to add Internet Service \"${FullName}\" to Gateway Endpoint \"${Target_GATEWAY[1]}\" did not complete. See message below."
@@ -4758,7 +4804,7 @@ function CreateInternetServices() {
 
 	# Finally, associate all Services to the AppWAN.
 	AttentionMessage "GREENINFO" "Associating all (${#AllInternetServices[*]}) Internet Services to AppWAN \"${Target_APPWANNAME[0]}\"."
-	if SetObjects_MOP "ADDSERVICETOAPPWAN" "${ServicesAddedArray[*]}" "${Target_APPWANNAME[1]}"; then
+	if SetObjects_MOP_V6 "ADDSERVICETOAPPWAN" "${ServicesAddedArray[*]}" "${Target_APPWANNAME[1]}"; then
 		AttentionMessage "VALIDATED" "Successfully associated (${#AllInternetServices[*]}) Internet Services to AppWAN \"${Target_APPWANNAME[0]}\"."
 		return 0
 	else
@@ -4789,7 +4835,7 @@ function ChangeObjectName() {
 			Target_OBJECTNEW="${UserResponse}"
 
 			AttentionMessage "GREENINFO" "Re-naming ${Target_OBJECTTYPE} \"${Target_OBJECTOLD%%=>*}\" to \"${Target_OBJECTNEW}\"."
-			! SetObjects_MOP "CHANGE${Target_OBJECTTYPE}NAME" "${Target_OBJECTOLD}" "${Target_OBJECTNEW}" \
+			! SetObjects_MOP_V6 "CHANGE${Target_OBJECTTYPE}NAME" "${Target_OBJECTOLD}" "${Target_OBJECTNEW}" \
 				&& AttentionMessage "ERROR" "Re-naming of object failed. Object remains unchanged." \
 				&& echo "MESSSAGE: \"${SetObjectReturn:-NO MESSAGE RETURNED}\"." \
 				|| AttentionMessage "VALIDATED" "Re-naming was successful."
@@ -4930,28 +4976,28 @@ function ModifyEndpointAssociations() {
 			if GetYorN "Ready?" "No"; then
 				if [[ ${#AllEndpointGroupsAddition[*]} -gt 0 ]]; then
 					AttentionMessage "GREENINFO" "Adding selected EndpointGroups to ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\"."
-					SetObjects_MOP "ADDENDPOINTGROUPTO${Target_ASSOCIATION[1]}" "${AllEndpointGroupsAddition[*]}" "${Target_ASSOCIATION[2]}" \
+					SetObjects_MOP_V6 "ADDENDPOINTGROUPTO${Target_ASSOCIATION[1]}" "${AllEndpointGroupsAddition[*]}" "${Target_ASSOCIATION[2]}" \
 						&& AttentionMessage "VALIDATED" "Request to add EndpointGroup(s) is complete. Actual changes may still be underway." \
 						|| (AttentionMessage "ERROR" "FAILED! Request to add EndpointGroup(s) did not complete. See message below." \
 							&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}")
 				fi
 				if [[ ${#AllEndpointGroupsDeletion[*]} -gt 0 ]]; then
 					AttentionMessage "GREENINFO" "Deleting selected EndpointGroups from ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\"."
-					SetObjects_MOP "DELENDPOINTGROUPFROM${Target_ASSOCIATION[1]}" "${AllEndpointGroupsDeletion[*]}" "${Target_ASSOCIATION[2]}" \
+					SetObjects_MOP_V6 "DELENDPOINTGROUPFROM${Target_ASSOCIATION[1]}" "${AllEndpointGroupsDeletion[*]}" "${Target_ASSOCIATION[2]}" \
 					&& AttentionMessage "VALIDATED" "Request to delete EndpointGroup(s) is complete. Actual changes may still be underway." \
 						|| (AttentionMessage "ERROR" "FAILED! Request to delete EndpointGroup(s) did not complete. See message below." \
 							&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}")
 				fi
 				if [[ ${#AllEndpointsAddition[*]} -gt 0 ]]; then
 					AttentionMessage "GREENINFO" "Adding selected Endpoints to ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\"."
-					SetObjects_MOP "ADDENDPOINTTO${Target_ASSOCIATION[1]}" "${AllEndpointsAddition[*]}" "${Target_ASSOCIATION[2]}" \
+					SetObjects_MOP_V6 "ADDENDPOINTTO${Target_ASSOCIATION[1]}" "${AllEndpointsAddition[*]}" "${Target_ASSOCIATION[2]}" \
 						&& AttentionMessage "VALIDATED" "Request to add Endpoint(s) is complete. Actual changes may still be underway." \
 						|| (AttentionMessage "ERROR" "FAILED! Request to add Endpoint(s) did not complete. See message below." \
 							&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}")
 				fi
 				if [[ ${#AllEndpointsDeletion[*]} -gt 0 ]]; then
 					AttentionMessage "GREENINFO" "Deleting selected Endpoints from ${Target_ASSOCIATION[1]} \"${Target_ASSOCIATION[2]%%=>*}\"."
-					SetObjects_MOP "DELENDPOINTFROM${Target_ASSOCIATION[1]}" "${AllEndpointsDeletion[*]}" "${Target_ASSOCIATION[2]}" \
+					SetObjects_MOP_V6 "DELENDPOINTFROM${Target_ASSOCIATION[1]}" "${AllEndpointsDeletion[*]}" "${Target_ASSOCIATION[2]}" \
 					&& AttentionMessage "VALIDATED" "Request to delete Endpoint(s) is complete. Actual changes may still be underway." \
 						|| (AttentionMessage "ERROR" "FAILED! Request to delete Endpoint(s) did not complete. See message below." \
 							&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}")
@@ -5100,7 +5146,7 @@ function DeleteEndpoints() {
 		GetYorN "Ready?" "No" \
 			|| return 0
 
-		SetObjects_MOP "DELENDPOINT" "${Target_ENDPOINT[1]}"
+		SetObjects_MOP_V6 "DELENDPOINT" "${Target_ENDPOINT[1]}"
 		if [[ $? -eq 0 ]]; then
 			AttentionMessage "GREENINFO" "Endpoint \"${Target_ENDPOINT[0]}\" has been deleted."
 			return 0
@@ -5138,7 +5184,7 @@ function DeleteEndpointGroups() {
 		GetYorN "Ready?" "No" \
 			|| return 0
 
-		SetObjects_MOP "DELENDPOINTGROUP" "${Target_ENDPOINTGROUP[1]}"
+		SetObjects_MOP_V6 "DELENDPOINTGROUP" "${Target_ENDPOINTGROUP[1]}"
 		if [[ $? -eq 0 ]]; then
 			AttentionMessage "GREENINFO" "EndpointGroup \"${Target_ENDPOINTGROUP[0]}\" has been deleted."
 			return 0
@@ -5168,7 +5214,7 @@ function BulkCreateEndpoints() {
 
 			if [[ ${Target_EMAIL[0]} =~ "@" ]]; then
 
-				if ! SetObjects_MOP "EMAILALERT" "${StoredAttributes[0]:-ERRNOUUID}" "${Target_EMAIL[0]}" "${Target_EMAIL[1]}"; then
+				if ! SetObjects_MOP_V6 "EMAILALERT" "${StoredAttributes[0]:-ERRNOUUID}" "${Target_EMAIL[0]}" "${Target_EMAIL[1]}"; then
 
 					(( OutputCounter[5]++ ))
 					AttentionMessage "ERROR" " ┗━━Email alert transmission failed. Endpoint remains available."
@@ -5385,7 +5431,7 @@ function BulkCreateEndpoints() {
 		# Run creation.
 		AttentionMessage "GREENINFO" " ┏[${OutputCounter[1]}/${OutputCounterComplete[1]}] Creating new Endpoint \"${Target_ENDPOINTNAME}\"."
 		# This Endpoint was newly created.
-		if SetObjects_MOP "CREATEENDPOINT" "${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "${Target_GEOREGION}"; then
+		if SetObjects_MOP_V6 "CREATEENDPOINT" "${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "${Target_GEOREGION}"; then
 
 			(( OutputCounter[2]++ )) # Increment the success count.
 
@@ -5403,7 +5449,7 @@ function BulkCreateEndpoints() {
 			if [[ ${AllEndpointGroups} != "NOENDPOINTGROUPS" ]]; then
 				for ((i=0;i<${#AllEndpointGroups[*]};i++)); do
 					AttentionMessage "GREENINFO" " ┣━Request to add Endpoint to EndpointGroup \"${AllEndpointGroups[${i}]}\" started."
-					if SetObjects_MOP "ADDENDPOINTTOENDPOINTGROUP" "${StoredAttributes[0]}" "${AllEndpointGroups[${i}]}" &>/dev/null; then
+					if SetObjects_MOP_V6 "ADDENDPOINTTOENDPOINTGROUP" "${StoredAttributes[0]}" "${AllEndpointGroups[${i}]}" &>/dev/null; then
 						AttentionMessage "GREENINFO" " ┣━━Request to add Endpoint to EndpointGroup is complete."
 						(( OutputCounter[6]++ )) # Increment the pass counter.
 						EndpointGroupState[${i}]="ADDEPG_OK:${AllEndpointGroups[${i}]}"
@@ -5421,7 +5467,7 @@ function BulkCreateEndpoints() {
 			if [[ ${AllAppWANs} != "NOAPPWANS" ]]; then
 				for ((i=0;i<${#AllAppWANs[*]};i++)); do
 					AttentionMessage "GREENINFO" " ┣━Request to add \"${Target_ENDPOINTNAME}\" to AppWAN \"${AllAppWANs[${i}]}\" started."
-					if SetObjects_MOP "ADDENDPOINTTOAPPWAN" "${StoredAttributes[0]}" "${AllAppWANs[${i}]}" &>/dev/null; then
+					if SetObjects_MOP_V6 "ADDENDPOINTTOAPPWAN" "${StoredAttributes[0]}" "${AllAppWANs[${i}]}" &>/dev/null; then
 						AttentionMessage "GREENINFO" " ┣━Request to add \"${Target_ENDPOINTNAME}\" to AppWAN(s) is complete."
 						(( OutputCounter[8]++ )) # Increment the pass counter.
 						AppWANState[${i}]="ADDAPW_OK:${AllAppWANs[${i}]}"
@@ -5476,7 +5522,7 @@ function BulkCreateEndpoints() {
 					if [[ ${AllEndpointGroups} != "NOENDPOINTGROUPS" ]]; then
 						for ((i=0;i<${#AllEndpointGroups[*]};i++)); do
 							AttentionMessage "GREENINFO" " ┣━Request to add Endpoint to EndpointGroup \"${AllEndpointGroups[${i}]}\" started."
-							if SetObjects_MOP "ADDENDPOINTTOENDPOINTGROUP" "${StoredAttributes[0]}" "${AllEndpointGroups[${i}]}" &>/dev/null; then
+							if SetObjects_MOP_V6 "ADDENDPOINTTOENDPOINTGROUP" "${StoredAttributes[0]}" "${AllEndpointGroups[${i}]}" &>/dev/null; then
 								AttentionMessage "VALIDATED" " ┣━━Request to add Endpoint to EndpointGroup is complete."
 								(( OutputCounter[6]++ )) # Increment the pass counter.
 								EndpointGroupState[${i}]="ADDEPG_OK:${AllEndpointGroups[${i}]}"
@@ -5494,7 +5540,7 @@ function BulkCreateEndpoints() {
 					if [[ ${AllAppWANs} != "NOAPPWANS" ]]; then
 						for ((i=0;i<${#AllAppWANs[*]};i++)); do
 							AttentionMessage "GREENINFO" " ┣━Request to add Endpoint to AppWAN \"${AllAppWANs[${i}]}\" started."
-							if SetObjects_MOP "ADDENDPOINTTOAPPWAN" "${StoredAttributes[0]}" "${AllAppWANs[${i}]}" &>/dev/null; then
+							if SetObjects_MOP_V6 "ADDENDPOINTTOAPPWAN" "${StoredAttributes[0]}" "${AllAppWANs[${i}]}" &>/dev/null; then
 								AttentionMessage "VALIDATED" " ┣━━Request to add Endpoint to AppWAN is complete."
 								(( OutputCounter[8]++ )) # Increment the pass counter.
 								AppWANState[${i}]="ADDAPW_OK:${AllAppWANs[${i}]}"
@@ -5571,8 +5617,8 @@ function BulkCreateEndpoints() {
 }
 
 #################################################################################
-# Create new endpoints.
-function CreateEndpoints() {
+# Create new endpoints (V6).
+function CreateEndpoints_V6() {
 	# An array of all Endpoint Types and selectors.
 	local AllEndpointTypes=( \
 		"NetFoundry Client=>CL"
@@ -5687,7 +5733,7 @@ function CreateEndpoints() {
 
 						# Create the new Endpoint.
 						AttentionMessage "GREENINFO" "Creating new Endpoint \"${Target_ENDPOINTNAME}\"."
-						SetObjects_MOP "CREATEENDPOINT" "${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "${Target_GEOREGION##*=>}"
+						SetObjects_MOP_V6 "CREATEENDPOINT" "${Target_ENDPOINTNAME}" "${Target_ENDPOINTTYPE}" "${Target_GEOREGION##*=>}"
 
 						if [[ $? -eq 0 ]]; then
 
@@ -5698,7 +5744,7 @@ function CreateEndpoints() {
 
 							if [[ -n ${Target_ASSOCIATION[0]} ]]; then
 								AttentionMessage "GREENINFO" "Adding \"${Target_ENDPOINTNAME}\" to ${Target_ASSOCIATION[0]} \"${Target_ASSOCIATION[1]%%=>*}\"."
-								! SetObjects_MOP "ADDENDPOINTTO${Target_ASSOCIATION[0]}" "${SetObjectReturn##*=>}" "${Target_ASSOCIATION[1]##*=>}" \
+								! SetObjects_MOP_V6 "ADDENDPOINTTO${Target_ASSOCIATION[0]}" "${SetObjectReturn##*=>}" "${Target_ASSOCIATION[1]##*=>}" \
 									&& AttentionMessage "ERROR" "Endpoint association failed. Endpoint remains available." \
 									&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}" \
 									|| AttentionMessage "VALIDATED" "New Endpoint \"${Target_ENDPOINTNAME}\" added to \"${Target_ASSOCIATION[1]%%=>*}\"."
@@ -5706,7 +5752,7 @@ function CreateEndpoints() {
 
 							if [[ -n ${Target_EMAIL[0]} ]]; then
 								AttentionMessage "GREENINFO" "Sending alert to \"${Target_EMAIL[0]}\" with information about new Endpoint \"${Target_ENDPOINTNAME}\"."
-								! SetObjects_MOP "EMAILALERT" "${Target_ENDPOINTUUID}" "${Target_EMAIL[0]}" "${Target_EMAIL[1]}" \
+								! SetObjects_MOP_V6 "EMAILALERT" "${Target_ENDPOINTUUID}" "${Target_EMAIL[0]}" "${Target_EMAIL[1]}" \
 									&& AttentionMessage "ERROR" "Email alert transmission failed. Endpoint remains available." \
 									&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}" \
 									|| AttentionMessage "VALIDATED" "Email alert transmission succeeded."
@@ -5748,6 +5794,89 @@ function CreateEndpoints() {
 }
 
 #################################################################################
+# Create new endpoints (V7).
+function CreateEndpoints_V7() {
+	local Target_ENDPOINTNAME Target_EMAIL Target_ENDPOINTUUID Target_ENDPOINTJWT
+
+	# The menu will loop around.
+	CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/MACD/CreateEndpoint"
+
+	while true; do
+
+		# The user needs to name the new Endpoint.
+		! GetObjectName "for the new Endpoint" \
+			&& return 0
+		Target_ENDPOINTNAME="${UserResponse}"
+
+		while true; do
+
+			# Does the user wish to email the owner of this new Endpoint?
+			if GetYorN "Send an Email to alert the owner of this new Endpoint?" "No"; then
+
+				# The user needs to give an Email to send the new Endpoint information to.
+				! GetResponse "Enter a valid Email to send an alert to." \
+					&& continue
+				Target_EMAIL[0]="${UserResponse}"
+
+				# The user needs to give a name (and instructions) which appears in the email.
+				#! GetResponse "Enter a message if desired. (MAX 75 CHARS)" \
+				#	&& continue
+				#Target_EMAIL[1]="${UserResponse:0:75}"
+
+			fi
+
+			while true; do
+
+				AttentionMessage "WARNING" "Review New Endpoint Details Carefully!"
+				echo "ORGANIZATION:  \"${Target_ORGANIZATION[1]}\""
+				echo "NETWORK:       \"${Target_NETWORK[1]}\""
+				echo "NAME:          \"${Target_ENDPOINTNAME}\""
+				[[ -z ${Target_EMAIL[0]} ]] \
+					&& echo "EMAIL ALERT:   \"NONE\"" \
+					|| echo "EMAIL ALERT:   \"${Target_EMAIL[0]}\""
+					#|| echo "EMAIL ALERT:   \"${Target_EMAIL[0]}\" MESSAGE \"${Target_EMAIL[1]}\""
+				GetYorN "Ready?" \
+					|| break 4
+
+				# Create the new Endpoint.
+				AttentionMessage "GREENINFO" "Creating new Endpoint \"${Target_ENDPOINTNAME}\"."
+				
+
+				if SetObjects_MOP_V7 "CREATEENDPOINT" "${Target_ENDPOINTNAME}"; then
+
+					Target_ENDPOINTUUID="${SetObjectReturn##*=>}"
+					Target_ENDPOINTJWT="${SetObjectReturn%%=>*}"
+
+					AttentionMessage "VALIDATED" "ENDPOINT_NAME=\"${Target_ENDPOINTNAME}\", ENDPOINT_UUID=\"${Target_ENDPOINTUUID}\", REGISTRATIONJWT=\"${Target_ENDPOINTJWT}\"."
+
+					if [[ -n ${Target_EMAIL[0]} ]]; then
+						AttentionMessage "GREENINFO" "Sending alert to \"${Target_EMAIL[0]}\" with information about new Endpoint \"${Target_ENDPOINTNAME}\"."
+						#! SetObjects_MOP_V7 "EMAILALERT" "${Target_ENDPOINTUUID}" "${Target_EMAIL[0]}" "${Target_EMAIL[1]}" \
+						! SetObjects_MOP_V7 "EMAILALERT" "${Target_ENDPOINTUUID}" "${Target_EMAIL[0]}" "NONE" \
+							&& AttentionMessage "ERROR" "Email alert transmission failed. Endpoint remains available." \
+							&& echo "${SetObjectReturn:-NO MESSAGE RETURNED}" \
+							|| AttentionMessage "VALIDATED" "Email alert transmission succeeded."
+					fi
+
+				else
+
+					AttentionMessage "ERROR" "Endpoint creation failed, thus will not perform further actions."
+					echo "${SetObjectReturn:-NO MESSAGE RETURNED}"
+					return 1
+
+				fi
+
+				# Finished.
+				return 0
+
+			done
+
+		done
+
+	done
+}
+
+#################################################################################
 # Destroy the NFN Console Bearer Token.
 function DestroyBearerToken() {
 	# Trigger V7 Metadata destruction.
@@ -5759,7 +5888,7 @@ function DestroyBearerToken() {
 	elif [[ ${NFN_BEARER[1]} == "RETAIN" ]]; then
 		AttentionMessage "YELLOWINFO" "Console Bearer Token was passed in. Not attempting to destroy it."
 		return 0
-	elif SetObjects_MOP "LOGOUT"; then
+	elif SetObjects_MOP_V6 "LOGOUT"; then
 		[[ -n ${NFN_BEARER[0]} ]] \
 			&& NFN_BEARER[0]="${RANDOM}${RANDOM}" \
 			&& unset NFN_BEARER
@@ -6501,6 +6630,7 @@ function LaunchMAIN() {
 
 	V7_AllMainOptions=( \
 		"Listings"
+		"Moving Adding Changing Deleting Objects"
 	)
 	V6_AllMainOptions=( \
 		"Listings"
@@ -6541,6 +6671,9 @@ function LaunchMAIN() {
 		"Delete Existing Endpoint"
 		"Delete Existing EndpointGroup"
 	)
+	V7_AllMACDOptions=( \
+		"Create New Endpoint"
+	)	
 	V6_AllMacroOptions=( \
 		"Add Internet Services to Gateway Endpoint"
 		"Bulk Create Endpoints"
@@ -6827,6 +6960,23 @@ function LaunchMAIN() {
 
 					done
 				;;
+
+				"Moving Adding Changing Deleting Objects")
+					while true; do
+
+						CurrentPath="/${Target_ORGANIZATION[1]}/${Target_NETWORK[1]}/MACD"
+						! GetSelection "Perform what type of MACD operation?" "${V7_AllMACDOptions[*]}" "NONE" \
+							&& break
+						case "${UserResponse}" in
+
+							"Create New Endpoint")
+								CreateEndpoints_V7
+							;;
+
+						esac
+					done
+				;;
+
 
 			esac
 
@@ -7166,7 +7316,7 @@ function LaunchMAIN() {
 							;;
 
 							"Create New Endpoint")
-								CreateEndpoints
+								CreateEndpoints_V6
 							;;
 
 							"Create New AppWAN")
